@@ -1,41 +1,38 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 
 namespace eCommerce.Core.Models
 {
-    public class Category
+    public class Category : BaseEntity
     {
-        public int Id { get; set; }
-        public required string Name { get; set; }
+        [Required]
+        [StringLength(100)]
+        public string Name { get; set; }
+
+        [StringLength(500)]
         public string Description { get; set; }
-        public string Slug { get; set; }
-        public int? ParentCategoryId { get; set; }
-        
-        [JsonIgnore]
-        public Category? ParentCategory { get; set; }
-        
-        [JsonIgnore]
-        public ICollection<Category> SubCategories { get; set; }
-        
-        [JsonIgnore]
-        public ICollection<Product> Products { get; set; }
-        
-        public bool IsActive { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public string ImageUrl { get; set; }
+
+        public int? ParentId { get; set; }
+
+        [ForeignKey("ParentId")]
+        public virtual Category Parent { get; set; }
+
+        public virtual ICollection<Category> Children { get; set; }
+
+        public virtual ICollection<Product> Products { get; set; }
+
+        public bool IsActive { get; set; } = true;
+
+        [NotMapped]
+        public int ProductCount { get; set; }
 
         public Category()
         {
-            SubCategories = new List<Category>();
-            Products = new List<Product>();
-            CreatedAt = DateTime.UtcNow;
-            IsActive = true;
-            Description = string.Empty;
-            Slug = string.Empty;
-            ImageUrl = string.Empty;
-            Name = string.Empty;
+            Children = new HashSet<Category>();
+            Products = new HashSet<Product>();
         }
     }
 } 

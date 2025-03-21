@@ -211,5 +211,12 @@ namespace eCommerce.Infrastructure.Repositories
             var user = await GetByIdAsync(userId);
             return user?.Role == role;
         }
+
+        public async Task<User?> GetByRefreshTokenAsync(string refreshToken)
+        {
+            return await _context.Users
+                .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken && 
+                                        u.RefreshTokenExpiryTime > DateTime.UtcNow);
+        }
     }
 } 

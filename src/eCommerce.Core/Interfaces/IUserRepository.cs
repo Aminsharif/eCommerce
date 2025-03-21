@@ -20,5 +20,9 @@ namespace eCommerce.Core.Interfaces
         Task<bool> IsEmailUnique(string email);
         Task<int> GetTotalCountAsync();
         Task<IEnumerable<User>> GetUsersAsync(int page, int pageSize);
+        Task<IEnumerable<string>> GetUserRolesAsync(int userId);
+        Task<bool> IsInRoleAsync(int userId, UserRole role);
+        Task<User?> GetByRefreshTokenAsync(string refreshToken);
+        Task UpdateLastLogin(int Id);
     }
 } 

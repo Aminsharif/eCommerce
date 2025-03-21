@@ -1,3 +1,4 @@
+using System;
 using eCommerce.Core.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,37 +18,31 @@ namespace eCommerce.Infrastructure.Data.Configurations
             builder.Property(c => c.Description)
                 .HasMaxLength(500);
 
-            builder.Property(c => c.Slug)
-                .IsRequired()
-                .HasMaxLength(100);
-
-            builder.Property(c => c.ImageUrl)
-                .HasMaxLength(500);
-
             builder.Property(c => c.IsActive)
-                .IsRequired();
+                .IsRequired()
+                .HasDefaultValue(true);
 
             builder.Property(c => c.CreatedAt)
                 .IsRequired();
 
-            builder.Property(c => c.UpdatedAt)
-                .IsRequired();
+            builder.Property(c => c.UpdatedAt);
 
-            // Relationships
-            builder.HasOne(c => c.ParentCategory)
-                .WithMany(c => c.SubCategories)
-                .HasForeignKey(c => c.ParentCategoryId)
+            // Configure self-referencing relationship
+            builder.HasOne(c => c.Parent)
+                .WithMany(c => c.Children)
+                .HasForeignKey(c => c.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.HasMany(c => c.SubCategories)
-                .WithOne(c => c.ParentCategory)
-                .HasForeignKey(c => c.ParentCategoryId)
-                .OnDelete(DeleteBehavior.Restrict);
-
+            // Configure one-to-many relationship with Product
             builder.HasMany(c => c.Products)
                 .WithOne(p => p.Category)
                 .HasForeignKey(p => p.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Create indexes
+            builder.HasIndex(c => c.Name);
+            builder.HasIndex(c => c.IsActive);
+            builder.HasIndex(c => c.ParentId);
         }
     }
 } 

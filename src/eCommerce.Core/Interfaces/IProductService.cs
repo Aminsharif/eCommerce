@@ -1,29 +1,24 @@
-using System;
+using eCommerce.Core.DTOs.Product;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using eCommerce.Core.Models;
 
 namespace eCommerce.Core.Interfaces
 {
     public interface IProductService
     {
-        Task<Product> GetProductById(int id);
-        Task<IEnumerable<Product>> GetAllProducts(int page, int pageSize);
-        Task<IEnumerable<Product>> SearchProducts(string searchTerm, string category, decimal? minPrice, decimal? maxPrice, string sortBy);
-        Task<Product> CreateProduct(Product product);
-        Task<Product> UpdateProduct(Product product);
-        Task DeleteProduct(int id);
-        Task<bool> UpdateStock(int productId, int quantity);
-        Task<IEnumerable<Product>> GetRelatedProducts(int productId);
-        Task<decimal> GetProductRating(int productId);
-        Task<IEnumerable<Review>> GetProductReviews(int productId);
-        Task<bool> AddProductReview(Review review);
-        Task<IEnumerable<Product>> GetFeaturedProducts();
-        Task<IEnumerable<Product>> GetProductsByCategory(string category);
-        Task<bool> IsProductInStock(int productId, int quantity);
-        Task<int> GetTotalProductsCount();
-        Task<IEnumerable<Product>> GetTopProducts(int count);
-        Task<IEnumerable<Product>> GetProducts(int page, int pageSize);
-        Task<Analytics> GetProductAnalytics();
+        Task<ProductListDto> GetProductsAsync(ProductFilterDto filter, int page = 1, int pageSize = 10);
+        Task<ProductDto> GetProductByIdAsync(int id);
+        Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId, int page = 1, int pageSize = 10);
+        Task<IEnumerable<ProductDto>> GetProductsByVendorAsync(int vendorId, int page = 1, int pageSize = 10);
+        Task<IEnumerable<ProductDto>> GetFeaturedProductsAsync(int count = 10);
+        Task<IEnumerable<ProductDto>> GetNewArrivalsAsync(int count = 10);
+        Task<IEnumerable<ProductDto>> GetBestSellersAsync(int count = 10);
+        Task<IEnumerable<ProductDto>> GetRelatedProductsAsync(int productId, int count = 4);
+        Task<IEnumerable<ProductDto>> SearchProductsAsync(string searchTerm, int page = 1, int pageSize = 10);
+        Task<ProductDto> CreateProductAsync(CreateProductDto productDto);
+        Task<ProductDto> UpdateProductAsync(int id, UpdateProductDto productDto);
+        Task<bool> DeleteProductAsync(int id);
+        Task<bool> UpdateProductStockAsync(int id, int quantity);
+        Task<bool> UpdateProductStatusAsync(int id, bool isActive);
     }
 } 

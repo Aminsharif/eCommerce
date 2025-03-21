@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using eCommerce.Core.Interfaces;
 using eCommerce.Core.Models;
 using Microsoft.Extensions.Logging;
+using eCommerce.Core.DTOs.Product;
+using System.Drawing.Printing;
 
 namespace eCommerce.Infrastructure.Controllers
 {
@@ -22,7 +24,7 @@ namespace eCommerce.Infrastructure.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Product>> GetProduct(int id)
         {
-            var product = await _productService.GetProductById(id);
+            var product = await _productService.GetProductByIdAsync(id);
             if (product == null)
                 return NotFound();
 
@@ -30,23 +32,22 @@ namespace eCommerce.Infrastructure.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] ProductFilterDto filter, [FromQuery] int page=1 , [FromQuery] int pageSize = 10)
         {
-            var products = await _productService.GetAllProducts(page, pageSize);
+            var products = await _productService.GetProductsAsync(filter,page, pageSize);
             return Ok(products);
         }
 
         [HttpGet("search")]
         public async Task<ActionResult<IEnumerable<Product>>> SearchProducts(
             [FromQuery] string searchTerm,
-            [FromQuery] string? category = null,
-            [FromQuery] decimal? minPrice = null,
-            [FromQuery] decimal? maxPrice = null,
-            [FromQuery] string? sortBy = null)
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+
         {
             try
             {
-                var products = await _productService.SearchProducts(searchTerm, category ?? "", minPrice, maxPrice, sortBy ?? "");
+                var products = await _productService.SearchProductsAsync(searchTerm, page, pageSize);
                 return Ok(products);
             }
             catch (Exception ex)
@@ -59,79 +60,53 @@ namespace eCommerce.Infrastructure.Controllers
         [HttpGet("featured")]
         public async Task<ActionResult<IEnumerable<Product>>> GetFeaturedProducts()
         {
-            var products = await _productService.GetFeaturedProducts();
+            var products = await _productService.GetFeaturedProductsAsync();
             return Ok(products);
         }
 
         [HttpGet("category/{category}")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByCategory(string category)
+        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByCategory(int category)
         {
-            var products = await _productService.GetProductsByCategory(category);
+            var products = await _productService.GetProductsByCategoryAsync(category);
             return Ok(products);
         }
 
         [HttpGet("{id}/related")]
         public async Task<ActionResult<IEnumerable<Product>>> GetRelatedProducts(int id)
         {
-            var products = await _productService.GetRelatedProducts(id);
+            var products = await _productService.GetRelatedProductsAsync(id);
             return Ok(products);
         }
 
-        [HttpGet("{id}/reviews")]
-        public async Task<ActionResult<IEnumerable<Review>>> GetProductReviews(int id)
-        {
-            var reviews = await _productService.GetProductReviews(id);
-            return Ok(reviews);
-        }
-
-        [HttpGet("{id}/rating")]
-        public async Task<ActionResult<decimal>> GetProductRating(int id)
-        {
-            var rating = await _productService.GetProductRating(id);
-            return Ok(rating);
-        }
+      
 
         [HttpPost]
-        public async Task<ActionResult<Product>> CreateProduct([FromBody] Product product)
+        public async Task<ActionResult<Product>> CreateProduct([FromBody] CreateProductDto product)
         {
-            var createdProduct = await _productService.CreateProduct(product);
+            var createdProduct = await _productService.CreateProductAsync(product);
             return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.Id }, createdProduct);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product product)
+        public async Task<IActionResult> UpdateProduct(int Id, [FromBody] UpdateProductDto product)
         {
-            if (id != product.Id)
-                return BadRequest();
 
-            await _productService.UpdateProduct(product);
+            await _productService.UpdateProductAsync(Id, product);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            await _productService.DeleteProduct(id);
+            await _productService.DeleteProductAsync(id);
             return NoContent();
         }
 
-        [HttpPost("{id}/reviews")]
-        public async Task<IActionResult> AddProductReview(int id, [FromBody] Review review)
-        {
-            if (id != review.ProductId)
-                return BadRequest();
-
-            var success = await _productService.AddProductReview(review);
-            if (!success)
-                return BadRequest();
-
-            return NoContent();
-        }
 
         [HttpPut("{id}/stock")]
         public async Task<IActionResult> UpdateStock(int id, [FromBody] int quantity)
         {
-            var success = await _productService.UpdateStock(id, quantity);
+            var success = await _productService.UpdateProductStockAsync(id, quantity);
             if (!success)
                 return BadRequest();
 
@@ -139,9 +114,9 @@ namespace eCommerce.Infrastructure.Controllers
         }
 
         [HttpGet("{id}/stock")]
-        public async Task<ActionResult<bool>> IsInStock(int id, [FromQuery] int quantity = 1)
+        public async Task<ActionResult<bool>> IsInStock(int id, [FromQuery] bool isActive = true)
         {
-            var inStock = await _productService.IsProductInStock(id, quantity);
+            var inStock = await _productService.UpdateProductStatusAsync(id, isActive);
             return Ok(inStock);
         }
     }

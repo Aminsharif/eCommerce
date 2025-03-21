@@ -15,8 +15,8 @@ namespace eCommerce.Core.Models
             get => DiscountPrice.HasValue ? Math.Round((1 - DiscountPrice.Value / Price) * 100, 2) : 0;
         }
         public required decimal Cost { get; set; }
-        public required decimal Rating { get; set; }
-        public required int TotalReviews { get; set; }
+        public decimal Rating { get; set; }
+        public int TotalReviews { get; set; }
         public required string SKU { get; set; }
         public required int StockQuantity { get; set; }
         public required int ReorderPoint { get; set; }

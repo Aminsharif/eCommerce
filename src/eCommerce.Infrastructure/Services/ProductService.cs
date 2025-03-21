@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using eCommerce.Core.DTOs.Product;
 using eCommerce.Core.Interfaces;
 using eCommerce.Core.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace eCommerce.Infrastructure.Services
 {
@@ -17,17 +19,23 @@ namespace eCommerce.Infrastructure.Services
         private readonly IMemoryCache _cache;
         private const int CacheExpirationMinutes = 30;
         private readonly ILogger<ProductService> _logger;
+        private readonly ICategoryRepository _categoryRepository;
+        private readonly IVendorRepository _vendorRepository;
 
         public ProductService(
             IProductRepository productRepository,
             IReviewRepository reviewRepository,
             IMemoryCache cache,
-            ILogger<ProductService> logger)
+            ILogger<ProductService> logger,
+            ICategoryRepository categoryRepository,
+            IVendorRepository vendorRepository)
         {
             _productRepository = productRepository;
             _reviewRepository = reviewRepository;
             _cache = cache;
             _logger = logger;
+            _categoryRepository = categoryRepository;
+            _vendorRepository = vendorRepository;
         }
 
         public async Task<Product> GetProductById(int id)
@@ -293,6 +301,247 @@ namespace eCommerce.Infrastructure.Services
             }
 
             return products.Average(p => p.Price);
+        }
+
+        public async Task<ProductListDto> GetProductsAsync(ProductFilterDto filter, int page = 1, int pageSize = 10)
+        {
+            var query = _productRepository.GetQueryable()
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.IsActive);
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(filter.SearchTerm))
+            {
+                query = query.Where(p => p.Name.Contains(filter.SearchTerm) || 
+                                       p.Description.Contains(filter.SearchTerm));
+            }
+
+            if (filter.CategoryId.HasValue)
+            {
+                query = query.Where(p => p.CategoryId == filter.CategoryId.Value);
+            }
+
+            if (filter.VendorId.HasValue)
+            {
+                query = query.Where(p => p.VendorId == filter.VendorId.Value);
+            }
+
+            if (filter.MinPrice.HasValue)
+            {
+                query = query.Where(p => p.Price >= filter.MinPrice.Value);
+            }
+
+            if (filter.MaxPrice.HasValue)
+            {
+                query = query.Where(p => p.Price <= filter.MaxPrice.Value);
+            }
+
+            if (filter.InStock.HasValue && filter.InStock.Value)
+            {
+                query = query.Where(p => p.StockQuantity > 0);
+            }
+
+            // Apply sorting
+            query = filter.SortBy?.ToLower() switch
+            {
+                "price" => filter.SortDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price),
+                "name" => filter.SortDescending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
+                "rating" => filter.SortDescending ? query.OrderByDescending(p => p.Rating) : query.OrderBy(p => p.Rating),
+                "created" => filter.SortDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt),
+                _ => query.OrderByDescending(p => p.CreatedAt)
+            };
+
+            // Get total count for pagination
+            var totalCount = await query.CountAsync();
+
+            // Apply pagination
+            var products = await query
+                .Skip((filter.PageNumber - 1) * filter.PageSize)
+                .Take(filter.PageSize)
+                .ToListAsync();
+
+            return new ProductListDto
+            {
+                Products = products.Select(MapToProductDto),
+                TotalCount = totalCount,
+                PageNumber = filter.PageNumber,
+                PageSize = filter.PageSize,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)filter.PageSize)
+            };
+        }
+
+        public async Task<ProductDto> GetProductByIdAsync(int id)
+        {
+            var product = await _productRepository.GetByIdAsync(id);
+            return product != null ? MapToProductDto(product) : null;
+        }
+
+        public async Task<IEnumerable<ProductDto>> GetProductsByCategoryAsync(int categoryId, int page = 1, int pageSize = 10)
+        {
+            var products = await _productRepository.GetProductsByCategoryAsync(categoryId, page, pageSize);
+            return products.Select(MapToProductDto);
+        }
+
+        public async Task<IEnumerable<ProductDto>> GetProductsByVendorAsync(int vendorId, int page = 1, int pageSize = 10)
+        {
+            var products = await _productRepository.GetProductsByVendorAsync(vendorId, page, pageSize);
+            return products.Select(MapToProductDto);
+        }
+
+        public async Task<IEnumerable<ProductDto>> GetFeaturedProductsAsync(int count = 10)
+        {
+            var products = await _productRepository.GetFeaturedProductsAsync(count);
+            return products.Select(MapToProductDto);
+        }
+
+        public async Task<IEnumerable<ProductDto>> GetNewArrivalsAsync(int count = 10)
+        {
+            var products = await _productRepository.GetNewArrivalsAsync(count);
+            return products.Select(MapToProductDto);
+        }
+
+        public async Task<IEnumerable<ProductDto>> GetBestSellersAsync(int count = 10)
+        {
+            var products = await _productRepository.GetBestSellersAsync(count);
+            return products.Select(MapToProductDto);
+        }
+
+        public async Task<IEnumerable<ProductDto>> GetRelatedProductsAsync(int productId, int count = 4)
+        {
+            var products = await _productRepository.GetRelatedProductsAsync(productId, count);
+            return products.Select(MapToProductDto);
+        }
+
+        public async Task<IEnumerable<ProductDto>> SearchProductsAsync(string searchTerm, int page = 1, int pageSize = 10)
+        {
+            var products = await _productRepository.SearchProductsAsync(searchTerm, page, pageSize);
+            return products.Select(MapToProductDto);
+        }
+
+        public async Task<ProductDto> CreateProductAsync(CreateProductDto productDto)
+        {
+            var product = new Product
+            {
+                Name = productDto.Name,
+                Description = productDto.Description,
+                Price = productDto.Price,
+                DiscountPrice = productDto.DiscountPrice,
+                Cost = productDto.Cost,
+                SKU = productDto.SKU,
+                StockQuantity = productDto.StockQuantity,
+                ReorderPoint = productDto.ReorderPoint,
+                IsActive = productDto.IsActive,
+                IsFeatured = productDto.IsFeatured,
+                Brand = productDto.Brand,
+                Manufacturer = productDto.Manufacturer,
+                Weight = productDto.Weight,
+                Dimensions = productDto.Dimensions,
+                ShippingInfo = productDto.ShippingInfo,
+                ReturnPolicy = productDto.ReturnPolicy,
+                Warranty = productDto.Warranty,
+                ViewCount = 0, // Default value
+                Slug = productDto.Slug,
+                ImagesJson = JsonSerializer.Serialize(productDto.Images ?? new List<string>()),
+                SpecificationsJson = JsonSerializer.Serialize(productDto.Specifications ?? new Dictionary<string, string>()),
+                CategoryId = productDto.CategoryId,
+                VendorId = productDto.VendorId,
+                Reviews = new List<Review>(), // Ensure required collections are initialized
+                OrderItems = new List<OrderItem>(),
+                CartItems = new List<CartItem>(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _productRepository.AddAsync(product);
+            return MapToProductDto(product);
+        }
+
+        public async Task<ProductDto> UpdateProductAsync(int id, UpdateProductDto productDto)
+        {
+            var product = await _productRepository.GetByIdAsync(id);
+            if (product == null)
+                return null;
+
+            if (productDto.Name != null)
+                product.Name = productDto.Name;
+            if (productDto.Description != null)
+                product.Description = productDto.Description;
+            if (productDto.Price.HasValue)
+                product.Price = productDto.Price.Value;
+            if (productDto.DiscountPrice.HasValue)
+                product.DiscountPrice = productDto.DiscountPrice.Value;
+            if (productDto.Images != null)
+                product.Images = productDto.Images;
+            if (productDto.CategoryId.HasValue)
+                product.CategoryId = productDto.CategoryId.Value;
+            if (productDto.VendorId.HasValue)
+                product.VendorId = productDto.VendorId.Value;
+            if (productDto.StockQuantity.HasValue)
+                product.StockQuantity = productDto.StockQuantity.Value;
+            if (productDto.IsActive.HasValue)
+                product.IsActive = productDto.IsActive.Value;
+
+            product.UpdatedAt = DateTime.UtcNow;
+            await _productRepository.UpdateAsync(product);
+            return MapToProductDto(product);
+        }
+
+        public async Task<bool> DeleteProductAsync(int id)
+        {
+            var product = await _productRepository.GetByIdAsync(id);
+            if (product == null)
+                return false;
+
+            await _productRepository.DeleteAsync(product);
+            return true;
+        }
+
+        public async Task<bool> UpdateProductStockAsync(int id, int quantity)
+        {
+            var product = await _productRepository.GetByIdAsync(id);
+            if (product == null)
+                return false;
+
+            product.StockQuantity = quantity;
+            product.UpdatedAt = DateTime.UtcNow;
+            await _productRepository.UpdateAsync(product);
+            return true;
+        }
+
+        public async Task<bool> UpdateProductStatusAsync(int id, bool isActive)
+        {
+            var product = await _productRepository.GetByIdAsync(id);
+            if (product == null)
+                return false;
+
+            product.IsActive = isActive;
+            product.UpdatedAt = DateTime.UtcNow;
+            await _productRepository.UpdateAsync(product);
+            return true;
+        }
+
+        private ProductDto MapToProductDto(Product product)
+        {
+            return new ProductDto
+            {
+                Id = product.Id,
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                DiscountPrice = product.DiscountPrice,
+                ImageUrl = product.ImagesJson,
+                CategoryId = product.CategoryId,
+                CategoryName = product.Category?.Name,
+                VendorId = product.VendorId,
+                VendorName = product.Vendor?.Name,
+                StockQuantity = product.StockQuantity,
+                Rating = product.Rating,
+                ReviewCount = product.Reviews?.Count ?? 0,
+                IsActive = product.IsActive,
+                CreatedAt = product.CreatedAt,
+                UpdatedAt = product.UpdatedAt
+            };
         }
     }
 } 

@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
+using eCommerce.Core.DTOs.Product;
 using eCommerce.Core.Interfaces;
-using eCommerce.Core.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace eCommerce.API.Controllers
 {
@@ -9,227 +10,128 @@ namespace eCommerce.API.Controllers
     public class ProductController : ControllerBase
     {
         private readonly IProductService _productService;
-        private readonly ILogger<ProductController> _logger;
 
-        public ProductController(IProductService productService, ILogger<ProductController> logger)
+        public ProductController(IProductService productService)
         {
             _productService = productService;
-            _logger = logger;
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Product>> GetProduct(int id)
-        {
-            try
-            {
-                var product = await _productService.GetProductById(id);
-                if (product == null)
-                    return NotFound();
-
-                return Ok(product);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error retrieving product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<ProductListDto>> GetProducts([FromQuery] ProductFilterDto filter)
         {
-            try
-            {
-                var products = await _productService.GetAllProducts(page, pageSize);
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving products");
-                return StatusCode(500, "Internal server error");
-            }
+            var products = await _productService.GetProductsAsync(filter);
+            return Ok(products);
         }
 
-        [HttpGet("search")]
-        public async Task<ActionResult<IEnumerable<Product>>> SearchProducts(
-            [FromQuery] string searchTerm,
-            [FromQuery] string? category = null,
-            [FromQuery] decimal? minPrice = null,
-            [FromQuery] decimal? maxPrice = null,
-            [FromQuery] string? sortBy = null)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<ProductDto>> GetProduct(int id)
         {
-            try
-            {
-                var products = await _productService.SearchProducts(searchTerm, category, minPrice, maxPrice, sortBy);
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error searching products");
-                return StatusCode(500, "Internal server error");
-            }
+            var product = await _productService.GetProductByIdAsync(id);
+            if (product == null)
+                return NotFound();
+
+            return Ok(product);
+        }
+
+        [HttpGet("category/{categoryId}")]
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProductsByCategory(int categoryId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var products = await _productService.GetProductsByCategoryAsync(categoryId, page, pageSize);
+            return Ok(products);
+        }
+
+        [HttpGet("vendor/{vendorId}")]
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetProductsByVendor(int vendorId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var products = await _productService.GetProductsByVendorAsync(vendorId, page, pageSize);
+            return Ok(products);
         }
 
         [HttpGet("featured")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetFeaturedProducts()
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetFeaturedProducts([FromQuery] int count = 10)
         {
-            try
-            {
-                var products = await _productService.GetFeaturedProducts();
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving featured products");
-                return StatusCode(500, "Internal server error");
-            }
+            var products = await _productService.GetFeaturedProductsAsync(count);
+            return Ok(products);
         }
 
-        [HttpGet("category/{category}")]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProductsByCategory(string category)
+        [HttpGet("new-arrivals")]
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetNewArrivals([FromQuery] int count = 10)
         {
-            try
-            {
-                var products = await _productService.GetProductsByCategory(category);
-                return Ok(products);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error retrieving products for category {category}");
-                return StatusCode(500, "Internal server error");
-            }
+            var products = await _productService.GetNewArrivalsAsync(count);
+            return Ok(products);
         }
 
+        [HttpGet("best-sellers")]
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetBestSellers([FromQuery] int count = 10)
+        {
+            var products = await _productService.GetBestSellersAsync(count);
+            return Ok(products);
+        }
+
+        [HttpGet("{id}/related")]
+        public async Task<ActionResult<IEnumerable<ProductDto>>> GetRelatedProducts(int id, [FromQuery] int count = 4)
+        {
+            var products = await _productService.GetRelatedProductsAsync(id, count);
+            return Ok(products);
+        }
+
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<ProductDto>>> SearchProducts([FromQuery] string searchTerm, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var products = await _productService.SearchProductsAsync(searchTerm, page, pageSize);
+            return Ok(products);
+        }
+
+        [Authorize(Roles = "Admin,Vendor")]
         [HttpPost]
-        public async Task<ActionResult<Product>> CreateProduct([FromBody] Product product)
+        public async Task<ActionResult<ProductDto>> CreateProduct(CreateProductDto productDto)
         {
-            try
-            {
-                var createdProduct = await _productService.CreateProduct(product);
-                return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.Id }, createdProduct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating product");
-                return StatusCode(500, "Internal server error");
-            }
+            var product = await _productService.CreateProductAsync(productDto);
+            return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
 
+        [Authorize(Roles = "Admin,Vendor")]
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProduct(int id, [FromBody] Product product)
+        public async Task<ActionResult<ProductDto>> UpdateProduct(int id, UpdateProductDto productDto)
         {
-            try
-            {
-                if (id != product.Id)
-                    return BadRequest();
+            var product = await _productService.UpdateProductAsync(id, productDto);
+            if (product == null)
+                return NotFound();
 
-                await _productService.UpdateProduct(product);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error updating product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
+            return Ok(product);
         }
 
+        [Authorize(Roles = "Admin,Vendor")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            try
-            {
-                await _productService.DeleteProduct(id);
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error deleting product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
+            var result = await _productService.DeleteProductAsync(id);
+            if (!result)
+                return NotFound();
+
+            return NoContent();
         }
 
-        [HttpGet("{id}/reviews")]
-        public async Task<ActionResult<IEnumerable<Review>>> GetProductReviews(int id)
-        {
-            try
-            {
-                var reviews = await _productService.GetProductReviews(id);
-                return Ok(reviews);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error retrieving reviews for product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        [HttpPost("{id}/reviews")]
-        public async Task<IActionResult> AddProductReview(int id, [FromBody] Review review)
-        {
-            try
-            {
-                if (id != review.ProductId)
-                    return BadRequest();
-
-                var success = await _productService.AddProductReview(review);
-                if (!success)
-                    return BadRequest();
-
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error adding review for product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        [HttpGet("{id}/rating")]
-        public async Task<ActionResult<decimal>> GetProductRating(int id)
-        {
-            try
-            {
-                var rating = await _productService.GetProductRating(id);
-                return Ok(rating);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error retrieving rating for product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
+        [Authorize(Roles = "Admin,Vendor")]
         [HttpPut("{id}/stock")]
         public async Task<IActionResult> UpdateStock(int id, [FromBody] int quantity)
         {
-            try
-            {
-                var success = await _productService.UpdateStock(id, quantity);
-                if (!success)
-                    return BadRequest();
+            var result = await _productService.UpdateProductStockAsync(id, quantity);
+            if (!result)
+                return NotFound();
 
-                return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error updating stock for product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
+            return NoContent();
         }
 
-        [HttpGet("{id}/stock")]
-        public async Task<ActionResult<bool>> IsInStock(int id, [FromQuery] int quantity = 1)
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] bool isActive)
         {
-            try
-            {
-                var inStock = await _productService.IsProductInStock(id, quantity);
-                return Ok(inStock);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error checking stock for product with ID {id}");
-                return StatusCode(500, "Internal server error");
-            }
+            var result = await _productService.UpdateProductStatusAsync(id, isActive);
+            if (!result)
+                return NotFound();
+
+            return NoContent();
         }
     }
 } 

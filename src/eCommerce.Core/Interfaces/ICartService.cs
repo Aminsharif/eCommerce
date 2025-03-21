@@ -1,23 +1,26 @@
 using System.Threading.Tasks;
-using eCommerce.Core.Models;
+using eCommerce.Core.DTOs.Cart;
 
 namespace eCommerce.Core.Interfaces
 {
     public interface ICartService
     {
-        Task<Cart> GetCart(int userId);
-        Task<Cart> AddToCart(int userId, int productId, int quantity);
-        Task<Cart> UpdateCartItem(int userId, int productId, int quantity);
-        Task<Cart> RemoveFromCart(int userId, int productId);
-        Task<Cart> ClearCart(int userId);
-        Task<Cart> ApplyCoupon(int userId, string couponCode);
-        Task<Cart> RemoveCoupon(int userId);
-        Task<bool> ValidateCoupon(string couponCode);
-        Task<decimal> CalculateCartTotal(int userId);
-        Task<bool> TransferCartToOrder(int userId);
-        Task<bool> ValidateCartItems(int userId);
-        Task<bool> UpdateCartPrices(int userId);
-        Task<int> GetCartItemCount(int userId);
-        Task<bool> MergeAnonymousCart(string anonymousCartId, int userId);
+        Task<CartDto> GetCartAsync(int userId);
+        Task<CartDto> AddToCartAsync(int userId, AddToCartDto addToCartDto);
+        Task<CartDto> UpdateCartItemAsync(int userId, UpdateCartItemDto updateCartItemDto);
+        Task<CartDto> RemoveFromCartAsync(int userId, RemoveFromCartDto removeFromCartDto);
+        Task<CartDto> ClearCartAsync(int userId);
+        Task<decimal> GetCartTotalAsync(int userId);
+        Task<int> GetCartItemCountAsync(int userId);
+        Task<bool> IsProductInCartAsync(int userId, int productId);
+        Task<CartDto> MergeCartsAsync(int userId, string guestCartId);
+        Task<CartDto> ApplyCouponAsync(int userId, string couponCode);
+        Task<CartDto> RemoveCouponAsync(int userId);
+        Task<CartDto> UpdateShippingAddressAsync(int userId, int addressId);
+        Task<CartDto> UpdateShippingMethodAsync(int userId, string shippingMethod);
+        Task<CartDto> UpdatePaymentMethodAsync(int userId, string paymentMethod);
+        Task<CartDto> SaveCartForLaterAsync(int userId);
+        Task<CartDto> RestoreSavedCartAsync(int userId);
+        Task<bool> ValidateCartAsync(int userId);
     }
 } 

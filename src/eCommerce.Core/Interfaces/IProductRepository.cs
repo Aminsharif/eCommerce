@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using eCommerce.Core.Models;
 
+
 namespace eCommerce.Core.Interfaces
 {
     public interface IProductRepository : IGenericRepository<Product>
@@ -50,5 +51,13 @@ namespace eCommerce.Core.Interfaces
         Task<IEnumerable<Product>> SearchAsync(string query);
         Task<IEnumerable<Product>> GetByCategoryAsync(string category);
         Task<IEnumerable<Product>> GetFeaturedAsync();
+        Task<IEnumerable<Product>> GetProductsByCategoryAsync(int categoryId, int page, int pageSize);
+        Task<IEnumerable<Product>> GetProductsByVendorAsync(int vendorId, int page, int pageSize);
+        Task<IEnumerable<Product>> GetFeaturedProductsAsync(int count);
+        Task<IEnumerable<Product>> GetNewArrivalsAsync(int count);
+        Task<IEnumerable<Product>> GetBestSellersAsync(int count);
+        Task<IEnumerable<Product>> GetRelatedProductsAsync(int productId, int count);
+        Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm, int page, int pageSize);
+        IQueryable<Product> GetQueryable();
     }
 } 

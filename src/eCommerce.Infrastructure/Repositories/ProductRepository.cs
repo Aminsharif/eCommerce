@@ -596,5 +596,108 @@ namespace eCommerce.Infrastructure.Repositories
                 .Where(p => p.VendorId == vendorId)
                 .ToListAsync();
         }
+
+        public IQueryable<Product> GetQueryable()
+        {
+            return _context.Products.AsQueryable();
+        }
+
+        public async Task<IEnumerable<Product>> GetProductsByCategoryAsync(int categoryId, int page, int pageSize)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.CategoryId == categoryId && p.IsActive)
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetProductsByVendorAsync(int vendorId, int page, int pageSize)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.VendorId == vendorId && p.IsActive)
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetFeaturedProductsAsync(int count)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.IsActive)
+                .OrderByDescending(p => p.Rating)
+                .Take(count)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetNewArrivalsAsync(int count)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.IsActive)
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(count)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetBestSellersAsync(int count)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.IsActive)
+                .Take(count)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> GetRelatedProductsAsync(int productId, int count)
+        {
+            var product = await _context.Products
+                .Include(p => p.Category)
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            if (product == null)
+                return new List<Product>();
+
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.CategoryId == product.CategoryId && 
+                           p.Id != productId && 
+                           p.IsActive)
+                .OrderByDescending(p => p.Rating)
+                .Take(count)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Product>> SearchProductsAsync(string searchTerm, int page, int pageSize)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Vendor)
+                .Include(p => p.Reviews)
+                .Where(p => p.IsActive && 
+                           (p.Name.Contains(searchTerm) || 
+                            p.Description.Contains(searchTerm)))
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
     }
 }

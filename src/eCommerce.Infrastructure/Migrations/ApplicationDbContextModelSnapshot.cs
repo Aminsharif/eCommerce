@@ -166,22 +166,45 @@ namespace eCommerce.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AnonymousId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("CouponCode")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<decimal>("DiscountAmount")
+                    b.Property<decimal>("Discount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsSavedForLater")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SessionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("ShippingAddressId")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("ShippingCost")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ShippingMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<decimal>("SubTotal")
                         .HasPrecision(18, 2)
@@ -195,13 +218,19 @@ namespace eCommerce.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("ShippingAddressId");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -220,20 +249,34 @@ namespace eCommerce.Infrastructure.Migrations
                     b.Property<int>("CartId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
                     b.Property<decimal>("Discount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsSavedForLater")
+                        .HasColumnType("bit");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
                     b.Property<string>("ProductImage")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("ProductName")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
@@ -245,6 +288,9 @@ namespace eCommerce.Infrastructure.Migrations
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -264,40 +310,38 @@ namespace eCommerce.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ImageUrl")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<int?>("ParentCategoryId")
+                    b.Property<int?>("ParentId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ParentCategoryId");
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("ParentId");
 
                     b.ToTable("Categories");
                 });
@@ -1136,11 +1180,18 @@ namespace eCommerce.Infrastructure.Migrations
 
             modelBuilder.Entity("eCommerce.Core.Models.Cart", b =>
                 {
+                    b.HasOne("eCommerce.Core.Models.Address", "ShippingAddress")
+                        .WithMany()
+                        .HasForeignKey("ShippingAddressId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("eCommerce.Core.Models.User", "User")
                         .WithOne("Cart")
                         .HasForeignKey("eCommerce.Core.Models.Cart", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ShippingAddress");
 
                     b.Navigation("User");
                 });
@@ -1166,12 +1217,12 @@ namespace eCommerce.Infrastructure.Migrations
 
             modelBuilder.Entity("eCommerce.Core.Models.Category", b =>
                 {
-                    b.HasOne("eCommerce.Core.Models.Category", "ParentCategory")
-                        .WithMany("SubCategories")
-                        .HasForeignKey("ParentCategoryId")
+                    b.HasOne("eCommerce.Core.Models.Category", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("ParentCategory");
+                    b.Navigation("Parent");
                 });
 
             modelBuilder.Entity("eCommerce.Core.Models.Commission", b =>
@@ -1356,9 +1407,9 @@ namespace eCommerce.Infrastructure.Migrations
 
             modelBuilder.Entity("eCommerce.Core.Models.Category", b =>
                 {
-                    b.Navigation("Products");
+                    b.Navigation("Children");
 
-                    b.Navigation("SubCategories");
+                    b.Navigation("Products");
                 });
 
             modelBuilder.Entity("eCommerce.Core.Models.Inventory", b =>

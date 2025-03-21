@@ -53,7 +53,7 @@ namespace eCommerce.Infrastructure.Services
         {
             try
             {
-                var product = await _productService.GetProductById(inventory.ProductId);
+                var product = await _productService.GetProductByIdAsync(inventory.ProductId);
                 if (product == null)
                     throw new KeyNotFoundException($"Product with ID {inventory.ProductId} not found");
 
