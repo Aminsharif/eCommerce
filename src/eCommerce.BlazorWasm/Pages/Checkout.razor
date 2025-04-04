@@ -1,0 +1,270 @@
+@page "/checkout"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Checkout - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudBreadcrumbs Items="_breadcrumbs" />
+    <MudText Typo="Typo.h4" Class="mb-4">Checkout</MudText>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-4 mb-4" Elevation="2">
+                    <MudText Typo="Typo.h6" Class="mb-4">Shipping Address</MudText>
+                    
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_address.FirstName" Label="First Name" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_address.LastName" Label="Last Name" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_address.Street" Label="Street Address" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_address.City" Label="City" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_address.State" Label="State/Province" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_address.PostalCode" Label="Postal Code" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_address.Country" Label="Country" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_address.Phone" Label="Phone Number" Required="true" />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mb-4" Elevation="2">
+                    <MudText Typo="Typo.h6" Class="mb-4">Shipping Method</MudText>
+                    
+                    <MudRadioGroup T="string" @bind-Value="_selectedShippingMethod" Class="mt-2">
+                        @foreach (var method in _shippingMethods)
+                        {
+                            <MudRadio T="string" Value="@method.Id" Color="Color.Primary">
+                                <div class="d-flex justify-space-between align-center" style="width: 100%;">
+                                    <div>
+                                        <MudText>@method.Name</MudText>
+                                        <MudText Typo="Typo.caption">@method.Description</MudText>
+                                    </div>
+                                    <MudText><strong>$@method.Price.ToString("F2")</strong></MudText>
+                                </div>
+                            </MudRadio>
+                        }
+                    </MudRadioGroup>
+                </MudPaper>
+
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.h6" Class="mb-4">Payment Method</MudText>
+                    
+                    <MudTabs Elevation="0" Color="Color.Primary" ApplyEffectsToContainer="true">
+                        <MudTabPanel Text="Credit Card">
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudTextField @bind-Value="_payment.CardNumber" Label="Card Number" Required="true" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField @bind-Value="_payment.ExpiryDate" Label="Expiry Date (MM/YY)" Required="true" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField @bind-Value="_payment.Cvv" Label="CVV" Required="true" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField @bind-Value="_payment.CardholderName" Label="Cardholder Name" Required="true" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudTabPanel>
+                        <MudTabPanel Text="PayPal">
+                            <MudAlert Severity="Severity.Info">You will be redirected to PayPal to complete your payment.</MudAlert>
+                        </MudTabPanel>
+                    </MudTabs>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4" Elevation="2" Style="position: sticky; top: 24px;">
+                    <MudText Typo="Typo.h6" Class="mb-4">Order Summary</MudText>
+                    
+                    @foreach (var item in _cart.Items)
+                    {
+                        <div class="d-flex justify-space-between align-center mb-2">
+                            <div class="d-flex align-center">
+                                <MudText Class="mr-2">@item.Quantity x</MudText>
+                                <MudText>@item.Product.Name</MudText>
+                            </div>
+                            <MudText>$@(((item.Product.DiscountPrice ?? item.Product.Price) * item.Quantity).ToString("F2"))</MudText>
+                        </div>
+                    }
+                    
+                    <MudDivider Class="my-4" />
+                    
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Subtotal:</MudText>
+                        <MudText>$@_cart.Subtotal.ToString("F2")</MudText>
+                    </div>
+                    
+                    @if (_cart.DiscountAmount > 0)
+                    {
+                        <div class="d-flex justify-space-between mb-2">
+                            <MudText>Discount:</MudText>
+                            <MudText Color="Color.Error">-$@_cart.DiscountAmount.ToString("F2")</MudText>
+                        </div>
+                    }
+                    
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Shipping:</MudText>
+                        <MudText>$@_cart.ShippingCost.ToString("F2")</MudText>
+                    </div>
+                    
+                    <div class="d-flex justify-space-between mb-4">
+                        <MudText Typo="Typo.h6">Total:</MudText>
+                        <MudText Typo="Typo.h6" Color="Color.Primary"><strong>$@_cart.Total.ToString("F2")</strong></MudText>
+                    </div>
+                    
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Large" OnClick="PlaceOrder">Place Order</MudButton>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private CartDto _cart = new();
+    private AddressDto _address = new();
+    private PaymentDto _payment = new();
+    private string _selectedShippingMethod = "";
+    private List<ShippingMethodDto> _shippingMethods = new();
+    private List<BreadcrumbItem> _breadcrumbs = new()
+    {
+        new BreadcrumbItem("Home", "/"),
+        new BreadcrumbItem("Cart", "/cart"),
+        new BreadcrumbItem("Checkout", null, disabled: true)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _cart = await Http.GetFromJsonAsync<CartDto>("api/cart") ?? new CartDto();
+            _address = await Http.GetFromJsonAsync<AddressDto>("api/user/address") ?? new AddressDto();
+            _shippingMethods = await Http.GetFromJsonAsync<List<ShippingMethodDto>>("api/shipping/methods") ?? new List<ShippingMethodDto>();
+            
+            if (_shippingMethods.Any())
+            {
+                _selectedShippingMethod = _shippingMethods[0].Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading checkout data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task PlaceOrder()
+    {
+        try
+        {
+            var order = new OrderDto
+            {
+                ShippingAddress = _address,
+                ShippingMethodId = _selectedShippingMethod,
+                Payment = _payment
+            };
+
+            var response = await Http.PostAsJsonAsync("api/orders", order);
+            if (response.IsSuccessStatusCode)
+            {
+                var orderId = await response.Content.ReadFromJsonAsync<string>();
+                NavigationManager.NavigateTo($"/order-confirmation/{orderId}");
+            }
+            else
+            {
+                Snackbar.Add("Failed to place order. Please try again.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error placing order: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private class CartDto
+    {
+        public List<CartItemDto> Items { get; set; } = new();
+        public decimal Subtotal { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public decimal ShippingCost { get; set; }
+        public decimal Total { get; set; }
+    }
+
+    private class CartItemDto
+    {
+        public ProductDto Product { get; set; } = new();
+        public int Quantity { get; set; }
+    }
+
+    private class ProductDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public decimal? DiscountPrice { get; set; }
+    }
+
+    private class AddressDto
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Street { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string State { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+    }
+
+    private class PaymentDto
+    {
+        public string CardNumber { get; set; } = string.Empty;
+        public string ExpiryDate { get; set; } = string.Empty;
+        public string Cvv { get; set; } = string.Empty;
+        public string CardholderName { get; set; } = string.Empty;
+    }
+
+    private class ShippingMethodDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+    }
+
+    private class OrderDto
+    {
+        public AddressDto ShippingAddress { get; set; } = new();
+        public string ShippingMethodId { get; set; } = string.Empty;
+        public PaymentDto Payment { get; set; } = new();
+    }
+}

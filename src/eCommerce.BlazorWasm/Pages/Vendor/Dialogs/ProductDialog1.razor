@@ -1,0 +1,304 @@
+@using eCommerce.Core.Enums
+@using Microsoft.AspNetCore.Components.Forms
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudDialogTitle>
+            <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                          Color="Color.Default" 
+                          OnClick="Cancel"
+                          class="mud-dialog-title-button-close"
+                          Style="position: absolute; right: 20px; top: 20px; z-index: 1;"/>
+        </MudDialogTitle>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_isValid">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Product Name" @bind-Value="_product.Name"
+                                Required="true" RequiredError="Name is required" />
+                </MudItem>
+                
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Description" @bind-Value="_product.Description"
+                                Required="true" RequiredError="Description is required"
+                                Lines="3" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="decimal" Label="Price" @bind-Value="_product.Price"
+                                    Required="true" RequiredError="Price is required"
+                                    Min="0" Format="N2" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="decimal" Value="@(_product.DiscountPrice ?? 0m)" Label="Discount Price"
+                                     ValueChanged="@(v => _product.DiscountPrice = v)" Min="0" Format="N2" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="decimal" Label="Cost" @bind-Value="_product.Cost"
+                                    Required="true" RequiredError="Cost is required"
+                                    Min="0" Format="N2" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudTextField T="string" Label="SKU" @bind-Value="_product.SKU"
+                                Required="true" RequiredError="SKU is required" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="int" Label="Stock Quantity" @bind-Value="_product.StockQuantity"
+                                    Required="true" RequiredError="Stock quantity is required"
+                                    Min="0" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudNumericField T="int" Label="Reorder Point" @bind-Value="_product.ReorderPoint"
+                                    Required="true" RequiredError="Reorder point is required"
+                                    Min="0" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudSelect T="int" Label="Category" @bind-Value="_product.CategoryId"
+                            Required="true" RequiredError="Category is required">
+                        @foreach (var category in _categories)
+                        {
+                            <MudSelectItem Value="@category.Id">@category.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudTextField T="string" Label="Brand" @bind-Value="_product.Brand"
+                                Required="true" RequiredError="Brand is required" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudTextField T="string" Label="Manufacturer" @bind-Value="_product.Manufacturer"
+                                Required="true" RequiredError="Manufacturer is required" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudTextField T="string" Label="Weight" @bind-Value="_product.Weight"
+                                Required="true" RequiredError="Weight is required" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudTextField T="string" Label="Dimensions" @bind-Value="_product.Dimensions"
+                                Required="true" RequiredError="Dimensions is required" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Shipping Info" @bind-Value="_product.ShippingInfo"
+                                Required="true" RequiredError="Shipping info is required"
+                                Lines="2" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Return Policy" @bind-Value="_product.ReturnPolicy"
+                                Required="true" RequiredError="Return policy is required"
+                                Lines="2" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string" Label="Warranty" @bind-Value="_product.Warranty"
+                                Required="true" RequiredError="Warranty is required" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudFileUpload T="IBrowserFile" 
+                                    Label="Product Images" 
+                                    Multiple="true"
+                                    Accept="image/png, image/jpeg" 
+                                    @ref="_fileUpload"
+                                    OnChange="OnFilesUploaded"
+                                    Variant="Variant.Outlined"
+                                    Color="Color.Primary"
+                                    ButtonIcon="@Icons.Material.Filled.FileUpload"
+                                    ButtonText="Upload Images"/> 
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudGrid>
+                        @foreach (var image in _product.Images)
+                        {
+                            <MudItem xs="4" class="pa-2">
+                                <MudImage Src="@image" Style="height: 100px; width: 100%; object-fit: cover" />
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudSwitch T="bool" Label="Active" Color="Color.Primary"
+                            @bind-Checked="_product.IsActive" />
+                </MudItem>
+
+                <MudItem xs="6">
+                    <MudSwitch T="bool" Label="Featured" Color="Color.Secondary"
+                            @bind-Checked="_product.IsFeatured" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="!_isValid">@(_product.Id == 0 ? "Add" : "Save")</MudButton>
+    </DialogActions>
+
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public ProductDto? Product { get; set; }
+
+    private MudForm _form = null!;
+    private bool _isValid=true;
+    private ProductDto _product = new();
+    private List<CategoryDto>? _categories;
+   
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+        ResetProduct();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            ResetProduct();
+
+            if (Product != null)
+            {
+                _product = new ProductDto
+                {
+                    Id = Product.Id,
+                    Name = Product.Name,
+                    Description = Product.Description,
+                    Price = Product.Price,
+                    DiscountPrice = Product.DiscountPrice,
+                    Cost = Product.Cost,
+                    SKU = Product.SKU,
+                    StockQuantity = Product.StockQuantity,
+                    ReorderPoint = Product.ReorderPoint,
+                    CategoryId = Product.CategoryId,
+                    Brand = Product.Brand,
+                    Manufacturer = Product.Manufacturer,
+                    Weight = Product.Weight,
+                    Dimensions = Product.Dimensions,
+                    ShippingInfo = Product.ShippingInfo,
+                    ReturnPolicy = Product.ReturnPolicy,
+                    Warranty = Product.Warranty,
+                    IsActive = Product.IsActive,
+                    IsFeatured = Product.IsFeatured
+                };
+            }
+
+            await LoadCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error initializing product: " + ex.Message, Severity.Error);
+            MudDialog.Cancel();
+        }
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            _categories = await Http.GetFromJsonAsync<List<CategoryDto>>($"api/categories?ts={DateTime.Now.Ticks}");
+            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Category load error: {ex.Message}", Severity.Error);
+            _categories = new List<CategoryDto>();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+    private async Task Submit()
+    {
+        try
+        {
+            if (_product.Id == 0)
+            {
+                await Http.PostAsJsonAsync("api/vendor/products", _product);
+                Snackbar.Add("Product added successfully", Severity.Success);
+            }
+            else
+            {
+                await Http.PutAsJsonAsync($"api/vendor/products/{_product.Id}", _product);
+                Snackbar.Add("Product updated successfully", Severity.Success);
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error saving product", Severity.Error);
+        }
+    }
+
+    private void Cancel() 
+    {
+        ResetProduct();
+        MudDialog.Cancel();
+    }
+
+    private void ResetProduct()
+    {
+        _product = new ProductDto();
+        StateHasChanged();
+    }
+
+    private IBrowserFile[] _files;
+    private MudFileUpload<IBrowserFile> _fileUpload;
+
+    private async Task OnFilesUploaded(InputFileChangeEventArgs e)
+    {
+        _files = e.GetMultipleFiles().ToArray();
+        foreach (var file in _files)
+        {
+            var buffer = new byte[file.Size];
+            await file.OpenReadStream().ReadAsync(buffer);
+            var imageType = file.ContentType.Split('/')[1];
+            _product.Images.Add($"data:image/{imageType};base64,{Convert.ToBase64String(buffer)}");
+        }
+        StateHasChanged();
+    }
+
+    public class ProductDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public decimal? DiscountPrice { get; set; }
+        public decimal Cost { get; set; }
+        public string SKU { get; set; } = string.Empty;
+        public int StockQuantity { get; set; }
+        public int ReorderPoint { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsFeatured { get; set; }
+        public string Brand { get; set; } = string.Empty;
+        public string Manufacturer { get; set; } = string.Empty;
+        public string Weight { get; set; } = string.Empty;
+        public string Dimensions { get; set; } = string.Empty;
+        public string ShippingInfo { get; set; } = string.Empty;
+        public string ReturnPolicy { get; set; } = string.Empty;
+        public string Warranty { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public List<string> Images { get; set; } = new();
+        public Dictionary<string, string> Specifications { get; set; } = new();
+        public int CategoryId { get; set; }
+        public string CategoryName { get; set; } = string.Empty;
+    }
+}
+

@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Identity;
 
 namespace eCommerce.Core.Models
 {
-    public class User : BaseEntity
+    public class User : IdentityUser<int>
     {
-        public required string Username { get; set; }
-        public required string Email { get; set; }
-        public required string PasswordHash { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? PhoneNumber { get; set; }
@@ -26,8 +21,10 @@ namespace eCommerce.Core.Models
         public DateTime? LastLogin { get; set; }
         public Vendor? Vendor { get; set; }
         public ICollection<Product>? WishList { get; set; }
-        public UserRole Role { get; set; }
+
         public string FullName => $"{FirstName} {LastName}";
+
+        public UserRole Role { get; set; }
 
         public User()
         {
@@ -39,4 +36,4 @@ namespace eCommerce.Core.Models
             IsActive = true;
         }
     }
-} 
+}

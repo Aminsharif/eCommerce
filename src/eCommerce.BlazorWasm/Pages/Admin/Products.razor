@@ -1,0 +1,282 @@
+@page "/admin/products"
+@using eCommerce.BlazorWasm.Pages.Admin.Dialogs
+@using eCommerce.Core.Enums
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Product Management - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudGrid>
+        <!-- Admin Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/admin" />
+                    <MudListItem Icon="@Icons.Material.Filled.Inventory" Text="Products" Href="/admin/products" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/admin/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Category" Text="Categories" Href="/admin/categories" />
+                    <MudListItem Icon="@Icons.Material.Filled.People" Text="Customers" Href="/admin/customers" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Settings" Href="/admin/settings" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Products Content -->
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4" Elevation="2">
+                <div class="d-flex justify-space-between align-center mb-4">
+                    <MudText Typo="Typo.h5">Products</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddProductDialog">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" /> Add Product
+                    </MudButton>
+                </div>
+
+                <!-- Filters -->
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_searchQuery" Label="Search Products" 
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" 
+                                    OnKeyUp="@((e) => { if (e.Key == "Enter") { ApplyFilters(); }})" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudSelect T="int?" @bind-Value="_selectedCategoryId" Label="Category">
+                            <MudSelectItem Value="@((int?)null)">All Categories</MudSelectItem>
+                            @foreach (var category in _categories)
+                            {
+                                <MudSelectItem Value="@category.Id">@category.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudSelect T="StockStatus?" @bind-Value="_stockFilter" Label="Stock Status">
+                            <MudSelectItem Value="@((StockStatus?)null)">All</MudSelectItem>
+                            <MudSelectItem Value="@(StockStatus.InStock)">In Stock</MudSelectItem>
+                            <MudSelectItem Value="@(StockStatus.LowStock)">Low Stock</MudSelectItem>
+                            <MudSelectItem Value="@(StockStatus.OutOfStock)">Out of Stock</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else if (_products != null && _products.Any())
+                {
+                    <MudTable Items="_products" Dense="false" Hover="true" Breakpoint="Breakpoint.Sm" Loading="_isLoading"
+                              Elevation="0" Filter="FilterFunc" @bind-SelectedItem="_selectedProduct">
+                        <HeaderContent>
+                            <MudTh><MudTableSortLabel SortBy="new Func<ProductDto, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
+                            <MudTh>Image</MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<ProductDto, object>(x => x.Name)">Name</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<ProductDto, object>(x => x.Category)">Category</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<ProductDto, object>(x => x.Price)">Price</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<ProductDto, object>(x => x.StockQuantity)">Stock</MudTableSortLabel></MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="ID">@context.Id</MudTd>
+                            <MudTd DataLabel="Image">
+                                <MudImage Src="@(context.ImageUrl ?? "/images/no-image.png")" 
+                                         Alt="@context.Name" Width="50" Height="50" 
+                                         ObjectFit="ObjectFit.Cover" Class="rounded" />
+                            </MudTd>
+                            <MudTd DataLabel="Name">@context.Name</MudTd>
+                            <MudTd DataLabel="Category">@context.Category</MudTd>
+                            <MudTd DataLabel="Price">
+                                @if (context.DiscountPrice.HasValue)
+                                {
+                                    <div class="d-flex flex-column">
+                                        <MudText Color="Color.Primary">$@context.DiscountPrice.Value.ToString("F2")</MudText>
+                                        <MudText Typo="Typo.caption" Style="text-decoration: line-through;">$@context.Price.ToString("F2")</MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <MudText>$@context.Price.ToString("F2")</MudText>
+                                }
+                            </MudTd>
+                            <MudTd DataLabel="Stock">@context.StockQuantity</MudTd>
+                            <MudTd DataLabel="Status">
+                                <MudChip Color="@GetStockStatusColor(context.StockQuantity)" Size="Size.Small">
+                                    @GetStockStatus(context.StockQuantity)
+                                </MudChip>
+                            </MudTd>
+                            <MudTd>
+                                <MudButtonGroup Size="Size.Small" Variant="Variant.Text">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OpenEditProductDialog(context)" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteProduct(context)" />
+                                </MudButtonGroup>
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager />
+                        </PagerContent>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudText>No products found.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private string _searchQuery = "";
+    private int? _selectedCategoryId;
+    private StockStatus? _stockFilter;
+    private List<ProductDto> _products = new();
+    private List<CategoryDto> _categories = new();
+    private ProductDto? _selectedProduct;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _products = await Http.GetFromJsonAsync<List<ProductDto>>("api/admin/products") ?? new();
+            _categories = await Http.GetFromJsonAsync<List<CategoryDto>>("api/admin/categories") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OpenAddProductDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            { "Categories", _categories }
+        };
+
+        var dialog = await DialogService.ShowAsync<ProductDialog>("Add Product", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadDataAsync();
+            Snackbar.Add("Product added successfully", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditProductDialog(ProductDto product)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Product", product },
+            { "Categories", _categories },
+            { "IsEdit", true }
+        };
+
+        var dialog = await DialogService.ShowAsync<ProductDialog>("Edit Product", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadDataAsync();
+            Snackbar.Add("Product updated successfully", Severity.Success);
+        }
+    }
+
+    private async Task DeleteProduct(ProductDto product)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", $"Are you sure you want to delete '{product.Name}'? This action cannot be undone." },
+            { "ButtonText", "Delete" },
+            { "Color", Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Product", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/admin/products/{product.Id}");
+                await LoadDataAsync();
+                Snackbar.Add("Product deleted successfully", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error deleting product: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private bool FilterFunc(ProductDto product)
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery) && _selectedCategoryId == null && _stockFilter == null)
+            return true;
+
+        var matchesSearch = string.IsNullOrWhiteSpace(_searchQuery) ||
+                           product.Name.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                           product.Category.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase);
+
+        var matchesCategory = _selectedCategoryId == null || product.CategoryId == _selectedCategoryId;
+
+        var matchesStock = _stockFilter == null || _stockFilter switch
+        {
+            StockStatus.InStock => product.StockQuantity > 10,
+            StockStatus.LowStock => product.StockQuantity > 0 && product.StockQuantity <= 10,
+            StockStatus.OutOfStock => product.StockQuantity == 0,
+            _ => true
+        };
+
+        return matchesSearch && matchesCategory && matchesStock;
+    }
+
+    private void ApplyFilters()
+    {
+        StateHasChanged();
+    }
+
+    private string GetStockStatus(int quantity) => quantity switch
+    {
+        0 => "Out of Stock",
+        <= 10 => "Low Stock",
+        _ => "In Stock"
+    };
+
+    private Color GetStockStatusColor(int quantity) => quantity switch
+    {
+        0 => Color.Error,
+        <= 10 => Color.Warning,
+        _ => Color.Success
+    };
+
+    private class ProductDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        public int CategoryId { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public decimal? DiscountPrice { get; set; }
+        public int StockQuantity { get; set; }
+    }
+
+    private class CategoryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

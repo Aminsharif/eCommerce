@@ -1,0 +1,194 @@
+@using eCommerce.Core.DTOs.Product
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_isValid">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_product.Name" Label="Product Name" Required="true"
+                                ErrorText="Name is required"
+                                MaxLength="100" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_product.Description" Label="Description" Required="true"
+                                ErrorText="Description is required"
+                                Lines="3" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="decimal" @bind-Value="_product.Price" Label="Price" Required="true"
+                                    Min="0.01m" Format="N2"
+                                    ErrorText="Price must be greater than 0" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="decimal" Value="@(_product.DiscountPrice ?? 0m)"  Label="Discount Price"
+                                     ValueChanged="@(v => _product.DiscountPrice = v)" Min="0.01m" Format="N2" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="decimal" @bind-Value="_product.Cost" Label="Cost" Required="true"
+                                    Min="0.01m" Format="N2"
+                                    ErrorText="Cost must be greater than 0" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudTextField @bind-Value="_product.SKU" Label="SKU" Required="true"
+                                ErrorText="SKU is required" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="int" @bind-Value="_product.StockQuantity" Label="Stock Quantity" Required="true"
+                                    Min="0" Format="N0"
+                                    ErrorText="Stock quantity must be 0 or greater" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudNumericField T="int" @bind-Value="_product.ReorderPoint" Label="Reorder Point" Required="true"
+                                    Min="0" Format="N0"
+                                    ErrorText="Reorder point must be 0 or greater" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudSelect @bind-Value="_product.CategoryId" Label="Category" Required="true"
+                              ErrorText="Category is required">
+                        @foreach (var category in Categories)
+                        {
+                            <MudSelectItem Value="@category.Id">@category.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudSwitch @bind-Checked="_product.IsActive" Label="Active" Color="Color.Primary" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudSwitch @bind-Checked="_product.IsFeatured" Label="Featured" Color="Color.Secondary" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudFileUpload T="IBrowserFile" FilesChanged="OnFileChanged">
+                        <ButtonTemplate>
+                            <MudButton HtmlTag="label"
+                                      Variant="Variant.Filled"
+                                      Color="Color.Primary"
+                                      StartIcon="@Icons.Material.Filled.CloudUpload"
+                                      for="@context">
+                                Upload Image
+                            </MudButton>
+                        </ButtonTemplate>
+                    </MudFileUpload>
+                    @if (_product.Images?.Any() == true)
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            @foreach (var imageUrl in _product.Images)
+                            {
+                                <MudImage Src="@imageUrl"
+                                          Alt="Product Image"
+                                          Width="100"
+                                          Height="100"
+                                          Class="product-thumbnail" />
+                            }
+                        </div>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="!_isValid">@(IsEdit ? "Update" : "Create")</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Parameter] public List<CategoryDto> Categories { get; set; } = new();
+    [Parameter] public ProductDto Product { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+
+    private MudForm _form;
+    private bool _isValid;
+    private CreateProductDto _product = new();
+
+    protected override void OnInitialized()
+    {
+        if (IsEdit && Product != null)
+        {
+            _product = new CreateProductDto
+            {
+                Name = Product.Name,
+                Description = Product.Description,
+                Price = Product.Price,
+                DiscountPrice = Product.DiscountPrice,
+                Cost = Product.Cost,
+                SKU = Product.SKU,
+                StockQuantity = Product.StockQuantity,
+                ReorderPoint = Product.ReorderPoint,
+                CategoryId = Product.CategoryId,
+                IsActive = Product.IsActive,
+                IsFeatured = Product.IsFeatured,
+                Images = Product.Images
+            };
+        }
+    }
+
+    private async Task OnFileChanged(IBrowserFile file)
+    {
+        if (file != null)
+        {
+            try
+            {
+                var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
+                content.Add(fileContent, "file", file.Name);
+
+                var response = await Http.PostAsync("api/admin/products/upload-image", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var Images = await response.Content.ReadAsStringAsync();
+                    _product.Images.Append(Images);
+                    StateHasChanged();
+                }
+                else
+                {
+                    Snackbar.Add("Failed to upload image", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error uploading image: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+            if (IsEdit)
+            {
+                var updateDto = new UpdateProductDto
+                {
+                    Name = _product.Name,
+                    Description = _product.Description,
+                    Price = _product.Price,
+                    DiscountPrice = _product.DiscountPrice,
+                    Cost = _product.Cost,
+                    SKU = _product.SKU,
+                    StockQuantity = _product.StockQuantity,
+                    ReorderPoint = _product.ReorderPoint,
+                    CategoryId = _product.CategoryId,
+                    IsActive = _product.IsActive,
+                    IsFeatured = _product.IsFeatured,
+                    Images = _product.Images
+                };
+                await Http.PutAsJsonAsync($"api/admin/products/{Product.Id}", updateDto);
+            }
+            else
+            {
+                await Http.PostAsJsonAsync("api/admin/products", _product);
+            }
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving product: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

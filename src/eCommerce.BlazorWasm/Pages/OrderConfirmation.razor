@@ -1,0 +1,166 @@
+@page "/order-confirmation/{OrderId}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Order Confirmation - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudBreadcrumbs Items="_breadcrumbs" />
+    
+    @if (_isLoading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_order != null)
+    {
+        <MudPaper Class="pa-8 text-center" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" Class="mb-4" />
+            <MudText Typo="Typo.h4" Class="mb-2">Thank you for your order!</MudText>
+            <MudText Typo="Typo.subtitle1" Class="mb-6">Your order has been confirmed and will be shipped soon.</MudText>
+            
+            <MudText Typo="Typo.body1" Class="mb-2"><strong>Order Number:</strong> @_order.OrderNumber</MudText>
+            <MudText Typo="Typo.body1" Class="mb-6"><strong>Order Date:</strong> @_order.OrderDate.ToLocalTime().ToString("MMMM dd, yyyy")</MudText>
+            
+            <MudDivider Class="my-6" />
+            
+            <MudText Typo="Typo.h6" Class="mb-4">Order Details</MudText>
+            
+            @foreach (var item in _order.Items)
+            {
+                <MudPaper Class="pa-4 mb-4" Elevation="1">
+                    <MudGrid>
+                        <MudItem xs="12" sm="3">
+                            <MudImage Src="@(item.Product.ImageUrl ?? "/images/no-image.png")" 
+                                     Alt="@item.Product.Name"
+                                     Style="width: 100%;"
+                                     Height="100" 
+                                     ObjectFit="ObjectFit.Cover" 
+                                     Class="rounded" />
+                        </MudItem>
+                        <MudItem xs="12" sm="9" Class="d-flex flex-column justify-center">
+                            <MudText Typo="Typo.h6">@item.Product.Name</MudText>
+                            <MudText Typo="Typo.body2" Class="mb-2">Quantity: @item.Quantity</MudText>
+                            <MudText Typo="Typo.body1"><strong>$@((item.Price * item.Quantity).ToString("F2"))</strong></MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
+            
+            <MudDivider Class="my-6" />
+            
+            <div class="d-flex flex-column align-end mb-6">
+                <div class="d-flex justify-space-between" style="width: 200px;">
+                    <MudText>Subtotal:</MudText>
+                    <MudText>$@_order.Subtotal.ToString("F2")</MudText>
+                </div>
+                @if (_order.DiscountAmount > 0)
+                {
+                    <div class="d-flex justify-space-between" style="width: 200px;">
+                        <MudText>Discount:</MudText>
+                        <MudText Color="Color.Error">-$@_order.DiscountAmount.ToString("F2")</MudText>
+                    </div>
+                }
+                <div class="d-flex justify-space-between" style="width: 200px;">
+                    <MudText>Shipping:</MudText>
+                    <MudText>$@_order.ShippingCost.ToString("F2")</MudText>
+                </div>
+                <div class="d-flex justify-space-between" style="width: 200px;">
+                    <MudText Typo="Typo.h6">Total:</MudText>
+                    <MudText Typo="Typo.h6" Color="Color.Primary"><strong>$@_order.Total.ToString("F2")</strong></MudText>
+                </div>
+            </div>
+            
+            <MudDivider Class="my-6" />
+            
+            <MudText Typo="Typo.h6" Class="mb-4">Shipping Address</MudText>
+            <MudText>
+                @_order.ShippingAddress.FirstName @_order.ShippingAddress.LastName<br />
+                @_order.ShippingAddress.Street<br />
+                @_order.ShippingAddress.City, @_order.ShippingAddress.State @_order.ShippingAddress.PostalCode<br />
+                @_order.ShippingAddress.Country<br />
+                Phone: @_order.ShippingAddress.Phone
+            </MudText>
+            
+            <MudDivider Class="my-6" />
+            
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Link="/" Class="mr-2">Continue Shopping</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Link="/account/orders">View All Orders</MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Error">Order not found.</MudAlert>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public string OrderId { get; set; } = string.Empty;
+    
+    private OrderDto? _order;
+    private bool _isLoading = true;
+    private List<BreadcrumbItem> _breadcrumbs = new()
+    {
+        new BreadcrumbItem("Home", "/"),
+        new BreadcrumbItem("Order Confirmation", null, disabled: true)
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrderAsync();
+    }
+
+    private async Task LoadOrderAsync()
+    {
+        try
+        {
+            _order = await Http.GetFromJsonAsync<OrderDto>($"api/orders/{OrderId}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading order: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private class OrderDto
+    {
+        public string OrderNumber { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; }
+        public List<OrderItemDto> Items { get; set; } = new();
+        public decimal Subtotal { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public decimal ShippingCost { get; set; }
+        public decimal Total { get; set; }
+        public AddressDto ShippingAddress { get; set; } = new();
+    }
+
+    private class OrderItemDto
+    {
+        public ProductDto Product { get; set; } = new();
+        public int Quantity { get; set; }
+        public decimal Price { get; set; }
+    }
+
+    private class ProductDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+    }
+
+    private class AddressDto
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Street { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string State { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+    }
+}

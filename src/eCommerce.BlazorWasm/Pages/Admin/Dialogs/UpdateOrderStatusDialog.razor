@@ -1,0 +1,105 @@
+@using eCommerce.Core.DTOs
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <!-- Order Header Information -->
+            <MudItem xs="12">
+                <MudPaper Elevation="0" Class="d-flex justify-space-between align-center mb-4">
+                    <div>
+                        <MudText Typo="Typo.h6">Order #@Order.OrderNumber</MudText>
+                        <MudText Typo="Typo.body2">Placed on @Order.OrderDate.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</MudText>
+                    </div>
+                    <MudChip Color="@GetStatusColor(Order.Status)" Size="Size.Medium">@Order.Status</MudChip>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Status Update Form -->
+            <MudItem xs="12">
+                <MudPaper Elevation="0" Class="pa-4">
+                    <MudText Typo="Typo.subtitle1" Class="mb-4"><strong>Update Order Status</strong></MudText>
+                    
+                    <MudSelect T="string" @bind-Value="_selectedStatus" Label="New Status" Required="true" RequiredError="Status is required">
+                        @foreach (var status in Statuses)
+                        {
+                            @if (status != Order.Status)
+                            {
+                                <MudSelectItem Value="@status">@status</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                    
+                    <MudTextField @bind-Value="_statusNote" Label="Note (Optional)" Class="mt-4" 
+                                 Placeholder="Add a note about this status change" 
+                                 Lines="3" 
+                                 MaxLength="500" 
+                                 Counter="500" />
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="UpdateOrderStatusAsync" Disabled="@(string.IsNullOrEmpty(_selectedStatus) || _selectedStatus == Order.Status)">Update Status</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public OrderDto Order { get; set; } = null!;
+    [Parameter] public string[] Statuses { get; set; } = Array.Empty<string>();
+
+    private string? _selectedStatus;
+    private string? _statusNote;
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task UpdateOrderStatusAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedStatus) || _selectedStatus == Order.Status)
+            return;
+
+        try
+        {
+            var request = new UpdateOrderStatusDto
+            {
+                OrderId = Order.Id,
+                Status = _selectedStatus,
+                Note = _statusNote
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/orders/{Order.Id}/status", request);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add($"Order status updated to {_selectedStatus}", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating order status: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Color GetStatusColor(string status) => status?.ToLower() switch
+    {
+        "completed" => Color.Success,
+        "delivered" => Color.Success,
+        "shipped" => Color.Info,
+        "processing" => Color.Info,
+        "pending" => Color.Warning,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    public class UpdateOrderStatusDto
+    {
+        public int OrderId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? Note { get; set; }
+    }
+}

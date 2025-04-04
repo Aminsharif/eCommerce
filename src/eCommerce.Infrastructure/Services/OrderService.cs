@@ -1,7 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using eCommerce.Core.DTOs.Admin;
+using eCommerce.Core.DTOs.Vendor;
 using eCommerce.Core.Interfaces;
 using eCommerce.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -13,6 +11,41 @@ namespace eCommerce.Infrastructure.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IProductRepository _productRepository;
         private readonly ILogger<OrderService> _logger;
+
+        public async Task<int> GetTotalOrdersCountAsync()
+        {
+            try
+            {
+                return await _orderRepository.CountAsync(o => true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting total orders count");
+                throw;
+            }
+        }
+
+
+        public async Task<List<AdminDashboardDto.RecentOrder>> GetRecentOrdersAsync(int count)
+        {
+            try
+            {
+                var recentOrders = await _orderRepository.GetRecentOrdersAsync(count);
+                return recentOrders.Select(o => new AdminDashboardDto.RecentOrder
+                {
+                    OrderNumber = o.OrderNumber,
+                    OrderDate = o.CreatedAt,
+                    CustomerName = $"{o.User.FirstName} {o.User.LastName}",
+                    TotalAmount = o.Total,
+                    Status = o.Status.ToString()
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting recent orders");
+                throw;
+            }
+        }
 
         public OrderService(
             IOrderRepository orderRepository,
@@ -281,9 +314,17 @@ namespace eCommerce.Infrastructure.Services
             return await _orderRepository.GetTotalCountAsync();
         }
 
-        public async Task<IEnumerable<Order>> GetRecentOrders(int count)
+        public async Task<int> GetPendingOrdersCountAsync()
         {
-            return await _orderRepository.GetRecentOrdersAsync(count);
+            try
+            {
+                return await _orderRepository.CountAsync(o => o.Status == OrderStatus.Pending);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting pending orders count");
+                throw;
+            }
         }
 
         public async Task<IEnumerable<Order>> GetOrders(int page, int pageSize)
@@ -520,5 +561,25 @@ namespace eCommerce.Infrastructure.Services
 
             return analytics;
         }
+
+        Task<int> IOrderService.GetVendorOrdersCountAsync(int vendorId)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<int> IOrderService.GetVendorPendingOrdersCountAsync(int vendorId)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<List<VendorDashboardDto.RecentOrder>> IOrderService.GetVendorRecentOrdersAsync(int vendorId, int count)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<IEnumerable<Order>> IOrderService.GetRecentOrders(int count)
+        {
+            throw new NotImplementedException();
+        }
     }
-} 
+}

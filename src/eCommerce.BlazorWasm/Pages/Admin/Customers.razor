@@ -1,0 +1,225 @@
+@page "/admin/customers"
+@using eCommerce.BlazorWasm.Pages.Admin.Dialogs
+@using eCommerce.Core.DTOs.Admin
+@using CustomerStatusEnum = eCommerce.Core.Enums.CustomerStatus
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Customer Management - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudGrid>
+        <!-- Admin Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/admin" />
+                    <MudListItem Icon="@Icons.Material.Filled.Inventory" Text="Products" Href="/admin/products" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/admin/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Category" Text="Categories" Href="/admin/categories" />
+                    <MudListItem Icon="@Icons.Material.Filled.People" Text="Customers" Href="/admin/customers" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Settings" Href="/admin/settings" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Customers Content -->
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h5" Class="mb-4">Customers</MudText>
+
+                <!-- Filters -->
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_searchQuery" Label="Search Customers" 
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" 
+                                    OnKeyUp="@((e) => { if (e.Key == "Enter") { ApplyFilters(); }})" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudSelect T="CustomerStatusEnum?" @bind-Value="_selectedStatus" Label="Account Status">
+                            <MudSelectItem Value="@((CustomerStatusEnum?)null)">All Statuses</MudSelectItem>
+                            <MudSelectItem Value="CustomerStatusEnum.Active">Active</MudSelectItem>
+                            <MudSelectItem Value="CustomerStatusEnum.Inactive">Inactive</MudSelectItem>
+                            <MudSelectItem Value="CustomerStatusEnum.Blocked">Blocked</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudDateRangePicker @bind-DateRange="_dateRange" Label="Registration Date" />
+                    </MudItem>
+                </MudGrid>
+
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else if (_customers != null && _customers.Any())
+                {
+                    <MudTable Items="_customers" Dense="false" Hover="true" Breakpoint="Breakpoint.Sm" Loading="_isLoading"
+                              Elevation="0" Filter="FilterFunc" @bind-SelectedItem="_selectedCustomer">
+                        <HeaderContent>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CustomerDto, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CustomerDto, object>(x => x.Name)">Name</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CustomerDto, object>(x => x.Email)">Email</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CustomerDto, object>(x => x.RegisterDate)">Registered</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CustomerDto, object>(x => x.OrderCount)">Orders</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CustomerDto, object>(x => x.TotalSpent)">Total Spent</MudTableSortLabel></MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="ID">@context.Id</MudTd>
+                            <MudTd DataLabel="Name">@context.Name</MudTd>
+                            <MudTd DataLabel="Email">@context.Email</MudTd>
+                            <MudTd DataLabel="Registered">@context.RegisterDate.ToLocalTime().ToString("MMM dd, yyyy")</MudTd>
+                            <MudTd DataLabel="Orders">@context.OrderCount</MudTd>
+                            <MudTd DataLabel="Total Spent">$@context.TotalSpent.ToString("F2")</MudTd>
+                            <MudTd DataLabel="Status">
+                                <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                            </MudTd>
+                            <MudTd>
+                                <MudButtonGroup Size="Size.Small" Variant="Variant.Text">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" OnClick="() => ViewCustomerDetails(context)" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Info" OnClick="() => UpdateCustomerStatus(context)" />
+                                    @if (context.Status != "blocked")
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Block" Color="Color.Error" OnClick="() => BlockCustomer(context)" />
+                                    }
+                                </MudButtonGroup>
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager />
+                        </PagerContent>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudText>No customers found.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private string _searchQuery = "";
+    private CustomerStatusEnum? _selectedStatus;
+    private DateRange _dateRange = new();
+    private List<CustomerDto> _customers = new();
+    private CustomerDto? _selectedCustomer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomersAsync();
+    }
+
+    private async Task LoadCustomersAsync()
+    {
+        try
+        {
+            _customers = await Http.GetFromJsonAsync<List<CustomerDto>>("api/admin/customers") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading customers: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ViewCustomerDetails(CustomerDto customer)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Customer", customer }
+        };
+
+        var dialog = await DialogService.ShowAsync<CustomerDetailsDialog>("Customer Details", parameters);
+        await dialog.Result;
+    }
+
+    private async Task UpdateCustomerStatus(CustomerDto customer)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Customer", customer }
+        };
+
+        var dialog = await DialogService.ShowAsync<UpdateCustomerStatusDialog>("Update Customer Status", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadCustomersAsync();
+            Snackbar.Add("Customer status updated successfully", Severity.Success);
+        }
+    }
+
+    private async Task BlockCustomer(CustomerDto customer)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", $"Are you sure you want to block {customer.Name}? This will prevent them from accessing their account." },
+            { "ButtonText", "Block" },
+            { "Color", Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Block Customer", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            try
+            {
+                await Http.PutAsJsonAsync($"api/admin/customers/{customer.Id}/block", new { });
+                await LoadCustomersAsync();
+                Snackbar.Add("Customer blocked successfully", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error blocking customer: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private bool FilterFunc(CustomerDto customer)
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery) && _selectedStatus == null && 
+            _dateRange.Start == null && _dateRange.End == null)
+            return true;
+
+        var matchesSearch = string.IsNullOrWhiteSpace(_searchQuery) ||
+                           customer.Name.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                           customer.Email.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase);
+
+        var matchesStatus = _selectedStatus == null ||
+                           Enum.TryParse<CustomerStatusEnum>(customer.Status, true, out var status) && 
+                           status == _selectedStatus;
+
+        var matchesDate = (_dateRange.Start == null && _dateRange.End == null) ||
+                         (customer.RegisterDate.Date >= (_dateRange.Start?.Date ?? DateTime.MinValue) &&
+                          customer.RegisterDate.Date <= (_dateRange.End?.Date ?? DateTime.MaxValue));
+
+        return matchesSearch && matchesStatus && matchesDate;
+    }
+
+    private void ApplyFilters()
+    {
+        StateHasChanged();
+    }
+
+    private Color GetStatusColor(string status) => status.ToLower() switch
+    {
+        "active" => Color.Success,
+        "inactive" => Color.Warning,
+        "blocked" => Color.Error,
+        _ => Color.Default
+    };
+
+
+}

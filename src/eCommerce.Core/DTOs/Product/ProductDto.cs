@@ -10,7 +10,7 @@ namespace eCommerce.Core.DTOs.Product
         public string Description { get; set; }
         public decimal Price { get; set; }
         public decimal? DiscountPrice { get; set; }
-        public string ImageUrl { get; set; }
+        public List<string> Images { get; set; }
         public int CategoryId { get; set; }
         public string CategoryName { get; set; }
         public int? VendorId { get; set; }
@@ -19,6 +19,10 @@ namespace eCommerce.Core.DTOs.Product
         public decimal Rating { get; set; }
         public int ReviewCount { get; set; }
         public bool IsActive { get; set; }
+        public decimal Cost { get; set; }
+        public string SKU { get; set; }
+        public int ReorderPoint { get; set; }
+        public bool IsFeatured { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }

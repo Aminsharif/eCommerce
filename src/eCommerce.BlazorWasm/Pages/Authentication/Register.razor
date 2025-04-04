@@ -1,0 +1,120 @@
+@page "/register"
+@using eCommerce.BlazorWasm.Services.Interfaces
+@using eCommerce.Core.DTOs
+@using System.ComponentModel.DataAnnotations
+@inject IAuthenticationService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Register - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="pa-4">
+    <MudPaper Class="pa-4">
+        <MudForm @ref="form" @bind-IsValid="@success">
+            <MudText Typo="Typo.h4" Class="mb-4">Create an Account</MudText>
+            
+            <MudTextField @bind-Value="model.FirstName"
+                         Label="First Name"
+                         Required="true"
+                         RequiredError="First name is required"
+                         Class="mb-3" />
+            
+            <MudTextField @bind-Value="model.LastName"
+                         Label="Last Name"
+                         Required="true"
+                         RequiredError="Last name is required"
+                         Class="mb-3" />
+            
+            <MudTextField @bind-Value="model.Email"
+                         Label="Email"
+                         Required="true"
+                         RequiredError="Email is required"
+                         Validation="@(new EmailAddressAttribute())"
+                         ErrorText="The email address is invalid"
+                         Class="mb-3" />
+            
+            <MudTextField @bind-Value="model.Password"
+                         Label="Password"
+                         Required="true"
+                         RequiredError="Password is required"
+                         InputType="InputType.Password"
+                         Class="mb-3" />
+            
+            <MudTextField @bind-Value="model.ConfirmPassword"
+                         Label="Confirm Password"
+                         Required="true"
+                         RequiredError="Password confirmation is required"
+                         InputType="InputType.Password"
+                         Validation="@(new Func<string, IEnumerable<string>>(PasswordMatch))"
+                         Class="mb-4" />
+            
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       FullWidth="true"
+                       OnClick="HandleRegistration"
+                       Disabled="@(!success || _processing)">
+                @if (_processing)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ms-2">Processing</MudText>
+                }
+                else
+                {
+                    <MudText>Register</MudText>
+                }
+            </MudButton>
+            
+            <MudDivider Class="my-4"/>
+            
+            <MudText Align="Align.Center">
+                Already have an account? <MudLink Href="/login">Login here</MudLink>
+            </MudText>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm form;
+    private bool success;
+    private bool _processing;
+    private RegisterDto model = new();
+    
+    private IEnumerable<string> PasswordMatch(string arg)
+    {
+        if (string.IsNullOrWhiteSpace(model.Password))
+            yield return "The Password field is required.";
+        if (string.IsNullOrWhiteSpace(arg))
+            yield return "The ConfirmPassword field is required.";
+        else if (!string.IsNullOrWhiteSpace(model.Password) && arg != model.Password)
+            yield return "'ConfirmPassword' and 'Password' do not match.";
+    }
+    
+    private async Task HandleRegistration()
+    {
+        if (!success) return;
+        
+        _processing = true;
+        try
+        {
+            var result = await AuthService.RegisterAsync(model);
+            if (result.Succeeded)
+            {
+                Snackbar.Add(result.Message, Severity.Success);
+                NavigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("An error occurred during registration.", Severity.Error);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

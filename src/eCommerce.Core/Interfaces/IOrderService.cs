@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using eCommerce.Core.DTOs.Admin;
+using eCommerce.Core.DTOs.Vendor;
 using eCommerce.Core.Models;
 
 namespace eCommerce.Core.Interfaces
@@ -17,6 +19,7 @@ namespace eCommerce.Core.Interfaces
         Task<bool> UpdateShippingInfo(int orderId, string trackingNumber);
         Task<IEnumerable<Order>> GetOrdersByStatus(OrderStatus status);
         Task<IEnumerable<Order>> GetOrdersByDateRange(DateTime startDate, DateTime endDate);
+        Task<int> GetPendingOrdersCountAsync();
         Task<decimal> CalculateOrderTotal(IEnumerable<OrderItem> items);
         Task<bool> ValidateOrder(Order order);
         Task<IEnumerable<OrderItem>> GetOrderItems(int orderId);
@@ -25,6 +28,7 @@ namespace eCommerce.Core.Interfaces
         Task<decimal> GetTotalRevenue(DateTime startDate, DateTime endDate);
         Task<int> GetTotalOrders(DateTime startDate, DateTime endDate);
         Task<int> GetTotalOrdersCount();
+        Task<int> GetTotalOrdersCountAsync();
         Task<IEnumerable<Order>> GetRecentOrders(int count);
         Task<IEnumerable<Order>> GetOrders(int page, int pageSize);
         Task<Analytics> GetOrderAnalytics(DateTime startDate, DateTime endDate);
@@ -35,5 +39,10 @@ namespace eCommerce.Core.Interfaces
         Task<Order> UpdateOrderStatusAsync(int orderId, OrderStatus status);
         Task<Order> UpdatePaymentStatusAsync(int orderId, PaymentStatus status);
         Task<Analytics> GetOrderAnalyticsAsync(DateTime startDate, DateTime endDate);
+        Task<List<AdminDashboardDto.RecentOrder>> GetRecentOrdersAsync(int count);
+        // Vendor-specific methods
+        Task<int> GetVendorOrdersCountAsync(int vendorId);
+        Task<int> GetVendorPendingOrdersCountAsync(int vendorId);
+        Task<List<VendorDashboardDto.RecentOrder>> GetVendorRecentOrdersAsync(int vendorId, int count);
     }
-} 
+}

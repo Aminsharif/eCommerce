@@ -26,5 +26,8 @@ namespace eCommerce.Core.Interfaces
         Task<VendorReview> AddVendorReview(VendorReview review);
         Task<VendorReview> UpdateVendorReview(VendorReview review);
         Task<bool> DeleteVendorReview(int reviewId);
+        Task<int> GetTotalVendorsCountAsync();
+        // Vendor-specific methods
+        Task<decimal> GetVendorAverageRatingAsync(int vendorId);
     }
-} 
+}

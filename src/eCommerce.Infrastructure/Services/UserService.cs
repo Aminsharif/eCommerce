@@ -17,6 +17,19 @@ namespace eCommerce.Infrastructure.Services
         private readonly IReviewRepository _reviewRepository;
         private readonly ILogger<UserService> _logger;
 
+        public async Task<int> GetTotalCustomersCountAsync()
+        {
+            try
+            {
+                return await _userRepository.CountAsync(u => true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting total customers count");
+                throw;
+            }
+        }
+
         public UserService(IUserRepository userRepository, IOrderRepository orderRepository, IReviewRepository reviewRepository, ILogger<UserService> logger)
         {
             _userRepository = userRepository;

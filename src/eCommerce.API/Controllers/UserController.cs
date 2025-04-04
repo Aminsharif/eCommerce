@@ -78,7 +78,7 @@ namespace eCommerce.API.Controllers
             if (user == null)
                 return BadRequest();
 
-            user.Username = user.Email.Split('@')[0]; // Generate username from email
+            user.UserName = user.Email.Split('@')[0]; // Generate username from email
             user.Role = UserRole.Customer;
             user.CreatedAt = DateTime.UtcNow;
             user.IsActive = true;

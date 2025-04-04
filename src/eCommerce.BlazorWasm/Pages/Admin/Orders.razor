@@ -1,0 +1,231 @@
+@page "/admin/orders"
+@using eCommerce.BlazorWasm.Pages.Admin.Dialogs
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Order Management - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudGrid>
+        <!-- Admin Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/admin" />
+                    <MudListItem Icon="@Icons.Material.Filled.Inventory" Text="Products" Href="/admin/products" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/admin/orders" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.Category" Text="Categories" Href="/admin/categories" />
+                    <MudListItem Icon="@Icons.Material.Filled.People" Text="Customers" Href="/admin/customers" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Settings" Href="/admin/settings" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Orders Content -->
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h5" Class="mb-4">Orders</MudText>
+
+                <!-- Filters -->
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_searchQuery" Label="Search Orders" 
+                                    Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" 
+                                    OnKeyUp="@((e) => { if (e.Key == "Enter") { ApplyFilters(); }})" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudSelect T="string" @bind-Value="_selectedStatus" Label="Order Status">
+                            <MudSelectItem Value="@((string)null)">All Statuses</MudSelectItem>
+                            @foreach (var status in _orderStatuses)
+                            {
+                                <MudSelectItem Value="@status">@status</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudDateRangePicker @bind-DateRange="_dateRange" Label="Order Date" />
+                    </MudItem>
+                </MudGrid>
+
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else if (_orders != null && _orders.Any())
+                {
+                    <MudTable Items="_orders" Dense="false" Hover="true" Breakpoint="Breakpoint.Sm" Loading="_isLoading"
+                              Elevation="0" Filter="FilterFunc" @bind-SelectedItem="_selectedOrder">
+                        <HeaderContent>
+                            <MudTh><MudTableSortLabel SortBy="new Func<OrderDto, object>(x => x.OrderNumber)">Order #</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<OrderDto, object>(x => x.CustomerName)">Customer</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<OrderDto, object>(x => x.OrderDate)">Date</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<OrderDto, object>(x => x.Status)">Status</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<OrderDto, object>(x => x.Total)">Total</MudTableSortLabel></MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Order #">@context.OrderNumber</MudTd>
+                            <MudTd DataLabel="Customer">@context.CustomerName</MudTd>
+                            <MudTd DataLabel="Date">@context.OrderDate.ToLocalTime().ToString("MMM dd, yyyy")</MudTd>
+                            <MudTd DataLabel="Status">
+                                <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Total">$@context.Total.ToString("F2")</MudTd>
+                            <MudTd>
+                                <MudButtonGroup Size="Size.Small" Variant="Variant.Text">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Primary" OnClick="() => ViewOrderDetails(context)" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Info" OnClick="() => UpdateOrderStatus(context)" />
+                                    @if (context.Status == "Pending")
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" OnClick="() => CancelOrder(context)" />
+                                    }
+                                </MudButtonGroup>
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager />
+                        </PagerContent>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudText>No orders found.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private string _searchQuery = "";
+    private string? _selectedStatus;
+    private DateRange _dateRange = new();
+    private List<OrderDto> _orders = new();
+    private OrderDto? _selectedOrder;
+    private readonly string[] _orderStatuses = { "Pending", "Processing", "Shipped", "Delivered", "Cancelled" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrdersAsync();
+    }
+
+    private async Task LoadOrdersAsync()
+    {
+        try
+        {
+            _orders = await Http.GetFromJsonAsync<List<OrderDto>>("api/admin/orders") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading orders: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ViewOrderDetails(OrderDto order)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Order", order }
+        };
+
+        var dialog = await DialogService.ShowAsync<OrderDetailsDialog>("Order Details", parameters);
+        await dialog.Result;
+    }
+
+    private async Task UpdateOrderStatus(OrderDto order)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Order", order },
+            { "Statuses", _orderStatuses }
+        };
+
+        var dialog = await DialogService.ShowAsync<UpdateOrderStatusDialog>("Update Order Status", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadOrdersAsync();
+            Snackbar.Add("Order status updated successfully", Severity.Success);
+        }
+    }
+
+    private async Task CancelOrder(OrderDto order)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", $"Are you sure you want to cancel order #{order.OrderNumber}? This action cannot be undone." },
+            { "ButtonText", "Cancel Order" },
+            { "Color", Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Cancel Order", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            try
+            {
+                await Http.PutAsJsonAsync($"api/admin/orders/{order.Id}/cancel", new { });
+                await LoadOrdersAsync();
+                Snackbar.Add("Order cancelled successfully", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error cancelling order: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private bool FilterFunc(OrderDto order)
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery) && string.IsNullOrEmpty(_selectedStatus) && 
+            _dateRange.Start == null && _dateRange.End == null)
+            return true;
+
+        var matchesSearch = string.IsNullOrWhiteSpace(_searchQuery) ||
+                           order.OrderNumber.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                           order.CustomerName.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase);
+
+        var matchesStatus = string.IsNullOrEmpty(_selectedStatus) ||
+                           order.Status.Equals(_selectedStatus, StringComparison.OrdinalIgnoreCase);
+
+        var matchesDate = (_dateRange.Start == null && _dateRange.End == null) ||
+                         (order.OrderDate.Date >= (_dateRange.Start?.Date ?? DateTime.MinValue) &&
+                          order.OrderDate.Date <= (_dateRange.End?.Date ?? DateTime.MaxValue));
+
+        return matchesSearch && matchesStatus && matchesDate;
+    }
+
+    private void ApplyFilters()
+    {
+        StateHasChanged();
+    }
+
+    private Color GetStatusColor(string status) => status.ToLower() switch
+    {
+        "pending" => Color.Warning,
+        "processing" => Color.Info,
+        "shipped" => Color.Primary,
+        "delivered" => Color.Success,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    private class OrderDto
+    {
+        public int Id { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public decimal Total { get; set; }
+    }
+}

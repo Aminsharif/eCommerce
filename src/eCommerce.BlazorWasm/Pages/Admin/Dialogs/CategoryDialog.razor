@@ -1,0 +1,60 @@
+@using eCommerce.Core.DTOs.Admin
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_isValid">
+            <MudTextField @bind-Value="_category.Name" Label="Category Name" Required="true" />
+            <MudTextField @bind-Value="_category.Description" Label="Description" Lines="3" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="!_isValid">@(IsEdit ? "Update" : "Add")</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public CategoryDto? Category { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+
+    private MudForm _form = null!;
+    private bool _isValid;
+    private CategoryDto _category = new();
+
+    protected override void OnInitialized()
+    {
+        if (IsEdit && Category != null)
+        {
+            _category = Category;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+            if (IsEdit)
+            {
+                await Http.PutAsJsonAsync($"api/admin/categories/{_category.Id}", _category);
+            }
+            else
+            {
+                await Http.PostAsJsonAsync("api/admin/categories", _category);
+            }
+            MudDialog.Close(DialogResult.Ok(_category));
+            Snackbar.Add($"Category {(IsEdit ? "updated" : "added")} successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error {(IsEdit ? "updating" : "adding")} category: {ex.Message}", Severity.Error);
+        }
+    }
+}

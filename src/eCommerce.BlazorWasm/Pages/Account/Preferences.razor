@@ -1,0 +1,226 @@
+@page "/account/preferences"
+@using eCommerce.Core.Enums
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Account Preferences - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudGrid>
+        <!-- Account Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/account" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/account/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Favorite" Text="Wishlist" Href="/account/wishlist" />
+                    <MudListItem Icon="@Icons.Material.Filled.Person" Text="Profile" Href="/account/profile" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Preferences" Href="/account/preferences" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.ExitToApp" Text="Logout" OnClick="@(async () => await Logout())" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Preferences Content -->
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h5" Class="mb-4">Account Preferences</MudText>
+
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else
+                {
+                    <MudForm Model="_preferences" @ref="_form" @bind-IsValid="@_isValid">
+                        <!-- Notification Settings -->
+                        <MudItem xs="12" Class="mb-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Notification Settings</MudText>
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudSwitch @bind-Checked="_preferences.EmailNotifications" Label="Email Notifications" Color="Color.Primary" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudSwitch @bind-Checked="_preferences.OrderUpdates" Label="Order Status Updates" Color="Color.Primary" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudSwitch @bind-Checked="_preferences.PromotionalEmails" Label="Promotional Emails" Color="Color.Primary" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudSwitch @bind-Checked="_preferences.NewsletterSubscription" Label="Newsletter Subscription" Color="Color.Primary" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudItem>
+
+                        <!-- Regional Settings -->
+                        <MudItem xs="12" Class="mb-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Regional Settings</MudText>
+                            <MudGrid>
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="string" @bind-Value="_preferences.Language" Label="Language">
+                                        @foreach (var language in _languages)
+                                        {
+                                            <MudSelectItem Value="@language">@language</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="string" @bind-Value="_preferences.Currency" Label="Currency">
+                                        @foreach (var currency in _currencies)
+                                        {
+                                            <MudSelectItem Value="@currency.Code">@currency.Name (@currency.Symbol)</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="string" @bind-Value="_preferences.TimeZone" Label="Time Zone">
+                                        @foreach (var timeZone in _timeZones)
+                                        {
+                                            <MudSelectItem Value="@timeZone">@timeZone</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudItem>
+                            </MudGrid>
+                        </MudItem>
+
+                        <!-- Theme Settings -->
+                        <MudItem xs="12" Class="mb-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Theme Settings</MudText>
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudSwitch @bind-Checked="_preferences.DarkMode" Label="Dark Mode" Color="Color.Primary" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudSelect T="ThemeColor" @bind-Value="_preferences.Theme" Label="Color Theme">
+                                        <MudSelectItem Value="ThemeColor.Default">Default</MudSelectItem>
+                                        <MudSelectItem Value="ThemeColor.Blue">Blue</MudSelectItem>
+                                        <MudSelectItem Value="ThemeColor.Green">Green</MudSelectItem>
+                                        <MudSelectItem Value="ThemeColor.Purple">Purple</MudSelectItem>
+                                    </MudSelect>
+                                </MudItem>
+                            </MudGrid>
+                        </MudItem>
+
+                        <!-- Privacy Settings -->
+                        <MudItem xs="12" Class="mb-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Privacy Settings</MudText>
+                            <MudGrid>
+                                <MudItem xs="12">
+                                    <MudSwitch @bind-Checked="_preferences.PublicProfile" Label="Public Profile" Color="Color.Primary" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudSwitch @bind-Checked="_preferences.ShowOrderHistory" Label="Show Order History" Color="Color.Primary" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudItem>
+
+                        <!-- Save Button -->
+                        <MudItem xs="12" Class="mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePreferencesAsync" Disabled="!_isValid || _isSaving">
+                                @if (_isSaving)
+                                {
+                                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                    <MudText Class="ms-2">Saving</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Save Changes</MudText>
+                                }
+                            </MudButton>
+                        </MudItem>
+                    </MudForm>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _isValid;
+    private MudForm? _form;
+    private PreferencesDto _preferences = new();
+
+    private readonly string[] _languages = { "English", "Spanish", "French", "German", "Chinese", "Japanese" };
+    private readonly string[] _timeZones = { "UTC", "UTC-8 (PST)", "UTC-5 (EST)", "UTC+1 (CET)", "UTC+8 (CST)" };
+    private readonly List<CurrencyDto> _currencies = new()
+    {
+        new CurrencyDto { Code = "USD", Name = "US Dollar", Symbol = "$" },
+        new CurrencyDto { Code = "EUR", Name = "Euro", Symbol = "€" },
+        new CurrencyDto { Code = "GBP", Name = "British Pound", Symbol = "£" },
+        new CurrencyDto { Code = "JPY", Name = "Japanese Yen", Symbol = "¥" },
+        new CurrencyDto { Code = "CNY", Name = "Chinese Yuan", Symbol = "¥" }
+    };
+
+    // protected override async Task OnInitializedAsync()
+    // {
+    //     await LoadPreferencesAsync();
+    // }
+
+    // private async Task LoadPreferencesAsync()
+    // {
+    //     try
+    //     {
+    //         _preferences = await Http.GetFromJsonAsync<PreferencesDto>("api/account/preferences") ?? new();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error loading preferences: {ex.Message}", Severity.Error);
+    //     }
+    //     finally
+    //     {
+    //         _isLoading = false;
+    //     }
+    // }
+
+    // private async Task SavePreferencesAsync()
+    // {
+    //     if (_form?.IsValid ?? false)
+    //     {
+    //         _isSaving = true;
+    //         try
+    //         {
+    //             await Http.PutAsJsonAsync("api/account/preferences", _preferences);
+    //             Snackbar.Add("Preferences updated successfully", Severity.Success);
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             Snackbar.Add($"Error saving preferences: {ex.Message}", Severity.Error);
+    //         }
+    //         finally
+    //         {
+    //             _isSaving = false;
+    //         }
+    //     }
+    // }
+
+    // private async Task Logout()
+    // {
+    //     // Implement logout logic
+    //     NavigationManager.NavigateTo("/");
+    // }
+
+    private class PreferencesDto
+    {
+        public bool EmailNotifications { get; set; }
+        public bool OrderUpdates { get; set; }
+        public bool PromotionalEmails { get; set; }
+        public bool NewsletterSubscription { get; set; }
+        public string Language { get; set; } = "English";
+        public string Currency { get; set; } = "USD";
+        public string TimeZone { get; set; } = "UTC";
+        public bool DarkMode { get; set; }
+        public ThemeColor Theme { get; set; } = ThemeColor.Default;
+        public bool PublicProfile { get; set; }
+        public bool ShowOrderHistory { get; set; }
+    }
+
+    private class CurrencyDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Symbol { get; set; } = string.Empty;
+    }
+}

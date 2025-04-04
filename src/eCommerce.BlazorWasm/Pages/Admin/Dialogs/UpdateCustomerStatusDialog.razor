@@ -1,0 +1,63 @@
+@using eCommerce.Core.DTOs.Admin
+@using CustomerStatusEnum = eCommerce.Core.Enums.CustomerStatus
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_isValid">
+            <MudSelect T="CustomerStatusEnum" @bind-Value="_selectedStatus" Label="Status">
+                <MudSelectItem Value="CustomerStatusEnum.Active">Active</MudSelectItem>
+                <MudSelectItem Value="CustomerStatusEnum.Inactive">Inactive</MudSelectItem>
+                <MudSelectItem Value="CustomerStatusEnum.Blocked">Blocked</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_notes" Label="Notes" Lines="3" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit" Disabled="!_isValid">Update</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public CustomerDto Customer { get; set; } = null!;
+
+    private MudForm _form = null!;
+    private bool _isValid;
+    private CustomerStatusEnum _selectedStatus;
+    private string _notes = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        if (Enum.TryParse<CustomerStatusEnum>(Customer.Status, true, out var status))
+        {
+            _selectedStatus = status;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+            var request = new UpdateCustomerStatusDto
+            {
+                Status = _selectedStatus.ToString(),
+                Notes = _notes
+            };
+
+            await Http.PutAsJsonAsync($"api/admin/customers/{Customer.Id}/status", request);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating customer status: {ex.Message}", Severity.Error);
+        }
+    }
+}

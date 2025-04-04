@@ -6,4 +6,4 @@ namespace eCommerce.Core.Models
         Admin,
         Vendor
     }
-} 
+}

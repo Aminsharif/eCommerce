@@ -1,0 +1,206 @@
+@page "/account/profile"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>My Profile - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudGrid>
+        <!-- Account Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/account" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/account/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Favorite" Text="Wishlist" Href="/account/wishlist" />
+                    <MudListItem Icon="@Icons.Material.Filled.Person" Text="Profile" Href="/account/profile" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Preferences" Href="/account/preferences" />
+                    <MudListItem Icon="@Icons.Material.Filled.ExitToApp" Text="Logout" OnClick="Logout" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Profile Content -->
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h5" Class="mb-4">My Profile</MudText>
+
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else
+                {
+                    <MudForm @ref="_form" @bind-IsValid="@_isValid">
+                        <MudGrid>
+                            <!-- Personal Information -->
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.h6" Class="mb-4">Personal Information</MudText>
+                                <MudGrid>
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField @bind-Value="_profile.FirstName" Label="First Name" Required="true" RequiredError="First name is required" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField @bind-Value="_profile.LastName" Label="Last Name" Required="true" RequiredError="Last name is required" />
+                                    </MudItem>
+                                    <MudItem xs="12">
+                                        <MudTextField @bind-Value="_profile.Email" Label="Email" Required="true" RequiredError="Email is required" InputType="InputType.Email" />
+                                    </MudItem>
+                                    <MudItem xs="12">
+                                        <MudTextField @bind-Value="_profile.Phone" Label="Phone Number" Required="true" RequiredError="Phone number is required" />
+                                    </MudItem>
+                                </MudGrid>
+                            </MudItem>
+
+                            <!-- Default Shipping Address -->
+                            <MudItem xs="12" Class="mt-4">
+                                <MudText Typo="Typo.h6" Class="mb-4">Default Shipping Address</MudText>
+                                <MudGrid>
+                                    <MudItem xs="12">
+                                        <MudTextField @bind-Value="_profile.Address.Street" Label="Street Address" Required="true" RequiredError="Street address is required" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField @bind-Value="_profile.Address.City" Label="City" Required="true" RequiredError="City is required" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField @bind-Value="_profile.Address.State" Label="State/Province" Required="true" RequiredError="State is required" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField @bind-Value="_profile.Address.PostalCode" Label="Postal Code" Required="true" RequiredError="Postal code is required" />
+                                    </MudItem>
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField @bind-Value="_profile.Address.Country" Label="Country" Required="true" RequiredError="Country is required" />
+                                    </MudItem>
+                                </MudGrid>
+                            </MudItem>
+
+                            <!-- Change Password -->
+                            <MudItem xs="12" Class="mt-4">
+                                <MudExpansionPanels>
+                                    <MudExpansionPanel Text="Change Password">
+                                        <MudGrid>
+                                            <MudItem xs="12">
+                                                <MudTextField @bind-Value="_changePassword.CurrentPassword" Label="Current Password" Required="true" InputType="InputType.Password" />
+                                            </MudItem>
+                                            <MudItem xs="12">
+                                                <MudTextField @bind-Value="_changePassword.NewPassword" Label="New Password" Required="true" InputType="InputType.Password" />
+                                            </MudItem>
+                                            <MudItem xs="12">
+                                                <MudTextField @bind-Value="_changePassword.ConfirmPassword" Label="Confirm New Password" Required="true" InputType="InputType.Password" />
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudExpansionPanel>
+                                </MudExpansionPanels>
+                            </MudItem>
+
+                            <!-- Save Button -->
+                            <MudItem xs="12" Class="mt-4">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveProfileAsync" Disabled="!_isValid || _isSaving">
+                                    @if (_isSaving)
+                                    {
+                                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                        <MudText Class="ms-2">Saving</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText>Save Changes</MudText>
+                                    }
+                                </MudButton>
+                            </MudItem>
+                        </MudGrid>
+                    </MudForm>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _isValid;
+    private MudForm? _form;
+    private ProfileDto _profile = new();
+    private ChangePasswordDto _changePassword = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        try
+        {
+            _profile = await Http.GetFromJsonAsync<ProfileDto>("api/account/profile") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading profile: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        if (_form?.IsValid ?? false)
+        {
+            _isSaving = true;
+            try
+            {
+                await Http.PutAsJsonAsync("api/account/profile", _profile);
+                
+                if (!string.IsNullOrEmpty(_changePassword.NewPassword))
+                {
+                    await Http.PostAsJsonAsync("api/account/change-password", _changePassword);
+                    _changePassword = new();
+                }
+
+                Snackbar.Add("Profile updated successfully", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error saving profile: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                _isSaving = false;
+            }
+        }
+    }
+
+    private async Task Logout()
+    {
+        // Implement logout logic
+        NavigationManager.NavigateTo("/");
+    }
+
+    private class ProfileDto
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public AddressDto Address { get; set; } = new();
+    }
+
+    private class AddressDto
+    {
+        public string Street { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string State { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+    }
+
+    private class ChangePasswordDto
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

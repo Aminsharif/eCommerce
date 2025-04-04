@@ -2,12 +2,14 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using eCommerce.Core.Models;
 using eCommerce.Infrastructure.Data.Configurations;
 
 namespace eCommerce.Infrastructure.Data
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<int>, int>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
@@ -152,4 +154,4 @@ namespace eCommerce.Infrastructure.Data
             return base.SaveChangesAsync(cancellationToken);
         }
     }
-} 
+}

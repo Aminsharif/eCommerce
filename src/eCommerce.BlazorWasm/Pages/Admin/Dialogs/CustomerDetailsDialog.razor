@@ -1,0 +1,85 @@
+@using eCommerce.Core.DTOs.Admin
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle1"><strong>Name:</strong> @Customer.Name</MudText>
+                <MudText Typo="Typo.subtitle1"><strong>Email:</strong> @Customer.Email</MudText>
+                <MudText Typo="Typo.subtitle1"><strong>Phone:</strong> @Customer.PhoneNumber</MudText>
+                <MudText Typo="Typo.subtitle1"><strong>Registered:</strong> @Customer.RegisterDate.ToLocalTime().ToString("MMM dd, yyyy")</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.subtitle1"><strong>Status:</strong> <MudChip Color="@GetStatusColor(Customer.Status)" Size="Size.Small">@Customer.Status</MudChip></MudText>
+                <MudText Typo="Typo.subtitle1"><strong>Total Orders:</strong> @Customer.OrderCount</MudText>
+                <MudText Typo="Typo.subtitle1"><strong>Total Spent:</strong> $@Customer.TotalSpent.ToString("F2")</MudText>
+                <MudText Typo="Typo.subtitle1"><strong>Last Order:</strong> @(Customer.LastOrderDate?.ToLocalTime().ToString("MMM dd, yyyy") ?? "N/A")</MudText>
+            </MudItem>
+
+            @if (Customer.Address != null)
+            {
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.h6">Shipping Address</MudText>
+                    <MudText Typo="Typo.body1">@Customer.Address.Street</MudText>
+                    <MudText Typo="Typo.body1">@Customer.Address.City, @Customer.Address.State @Customer.Address.PostalCode</MudText>
+                    <MudText Typo="Typo.body1">@Customer.Address.Country</MudText>
+                </MudItem>
+            }
+
+            @if (Customer.RecentOrders != null && Customer.RecentOrders.Any())
+            {
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.h6">Recent Orders</MudText>
+                    <MudTable Items="Customer.RecentOrders" Dense="true" Hover="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Order ID</MudTh>
+                            <MudTh>Date</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Total</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.OrderId</MudTd>
+                            <MudTd>@context.OrderDate.ToLocalTime().ToString("MMM dd, yyyy")</MudTd>
+                            <MudTd>
+                                <MudChip Color="@GetOrderStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                            </MudTd>
+                            <MudTd>$@context.Total.ToString("F2")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+            }
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public CustomerDto Customer { get; set; } = null!;
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+
+    private Color GetStatusColor(string status) => status?.ToLower() switch
+    {
+        "active" => Color.Success,
+        "inactive" => Color.Warning,
+        "blocked" => Color.Error,
+        _ => Color.Default
+    };
+
+    private Color GetOrderStatusColor(string status) => status?.ToLower() switch
+    {
+        "completed" => Color.Success,
+        "processing" => Color.Info,
+        "pending" => Color.Warning,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+}

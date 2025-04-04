@@ -1,0 +1,103 @@
+@page "/login"
+@using eCommerce.BlazorWasm.Services.Interfaces
+@using eCommerce.Core.DTOs
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Authorization
+@using eCommerce.Core.Models
+@inject IAuthenticationService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Login - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="pa-4">
+    <MudPaper Class="pa-4">
+        <MudForm @ref="form" @bind-IsValid="@success">
+            <MudText Typo="Typo.h4" Class="mb-4">Login</MudText>
+            
+            <MudTextField @bind-Value="model.Email"
+                         Label="Email"
+                         Required="true"
+                         RequiredError="Email is required"
+                         Validation="@(new EmailAddressAttribute())"
+                         ErrorText="The email address is invalid"
+                         Class="mb-3" />
+            
+            <MudTextField @bind-Value="model.Password"
+                         Label="Password"
+                         Required="true"
+                         RequiredError="Password is required"
+                         InputType="InputType.Password"
+                         Class="mb-4" />
+            
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Size="Size.Large"
+                       FullWidth="true"
+                       OnClick="HandleLogin"
+                       Disabled="@(!success || _processing)">
+                @if (_processing)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ms-2">Processing</MudText>
+                }
+                else
+                {
+                    <MudText>Login</MudText>
+                }
+            </MudButton>
+            
+            <MudDivider Class="my-4"/>
+            
+            <MudText Align="Align.Center">
+                Don't have an account? <MudLink Href="/register">Register here</MudLink>
+            </MudText>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm form;
+    private bool success;
+    private bool _processing;
+    private LoginDto model = new();
+
+    private async Task HandleLogin()
+    {
+        if (!success) return;
+
+        _processing = true;
+        try
+        {
+            var result = await AuthService.LoginAsync(model);
+
+            if (result.Succeeded)
+            {
+                var roles = await AuthService.GetUserRolesAsync();
+                string redirectUrl = "/";
+                // Try to parse the role as either a string or numeric value
+                var rolesList = roles.Split(',').Select(r => r.Trim()).ToList();
+                if (rolesList.Contains("Admin"))
+                    redirectUrl = "/admin/dashboard";
+                else if (rolesList.Contains("Vendor"))
+                    redirectUrl = "/vendor/dashboard";
+                
+                Snackbar.Add("Login successful!", Severity.Success);
+                NavigationManager.NavigateTo(redirectUrl);
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("An error occurred during login.", Severity.Error);
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

@@ -9,8 +9,20 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using eCommerce.API.Infrastructure.Swagger;
 using System.Reflection;
+using eCommerce.Core.Models;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add CORS policy for Blazor client
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("BlazorClient",
+        policy => policy.WithOrigins("https://localhost:53431")
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials());
+});
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -84,6 +96,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("BlazorWasmPolicy", policy =>
+    {
+        policy.WithOrigins("https://localhost:53431")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Configure DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -106,6 +130,20 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+
+// Add Identity services
+builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
+{
+    options.Password.RequiredLength = 8;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.User.RequireUniqueEmail = true;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
 
 // Add Memory Cache
 builder.Services.AddMemoryCache();
@@ -113,19 +151,38 @@ builder.Services.AddMemoryCache();
 // Add Logging
 builder.Services.AddLogging();
 
-// Configure CORS
-builder.Services.AddCors(options =>
+// Register DatabaseSeeder
+builder.Services.AddScoped<DatabaseSeeder>();
+
+// Configure Kestrel for HTTPS and Development Certificate
+builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
+    serverOptions.ConfigureHttpsDefaults(httpsOptions =>
+    {
+        httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+    });
 });
 
+// Configure development certificate
+if (builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseKestrel(options =>
+    {
+        options.ListenAnyIP(5227, listenOptions =>
+        {
+            listenOptions.UseHttps();
+        });
+    });
+}
+
 var app = builder.Build();
+
+// Seed initial data
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -138,10 +195,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseCors("AllowAll");
-
 app.UseRouting();
+
+// Enable CORS
+app.UseCors("BlazorClient"); // Using the BlazorClient policy with origin https://localhost:53431
 
 app.UseAuthentication();
 app.UseAuthorization();

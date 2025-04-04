@@ -9,6 +9,8 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using eCommerce.Core.DTOs.Vendor;
+using eCommerce.Core.DTOs.Admin;
 
 namespace eCommerce.Infrastructure.Services
 {
@@ -21,6 +23,85 @@ namespace eCommerce.Infrastructure.Services
         private readonly ILogger<ProductService> _logger;
         private readonly ICategoryRepository _categoryRepository;
         private readonly IVendorRepository _vendorRepository;
+
+        public async Task<int> GetTotalProductsCountAsync()
+        {
+            try
+            {
+                return await _productRepository.CountAsync(p => true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting total products count");
+                throw;
+            }
+        }
+
+        public async Task<int> GetLowStockProductsCountAsync()
+        {
+            try
+            {
+                const int LowStockThreshold = 5;
+                return await _productRepository.CountAsync(p => p.StockQuantity < LowStockThreshold);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting low stock products count");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<Product>> GetTopSellingProductsAsync(int count)
+        {
+            try
+            {
+                return await _productRepository.GetTopSellingProductsAsync(count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting top {count} selling products");
+                throw;
+            }
+        }
+
+        public async Task<int> GetVendorProductsCountAsync(int vendorId)
+        {
+            try
+            {
+                return await _productRepository.CountAsync(p => p.VendorId == vendorId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting product count for vendor {vendorId}");
+                throw;
+            }
+        }
+
+        public async Task<int> GetVendorActiveProductsCountAsync(int vendorId)
+        {
+            try
+            {
+                return await _productRepository.CountAsync(p => p.VendorId == vendorId && p.IsActive);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting active product count for vendor {vendorId}");
+                throw;
+            }
+        }
+
+        public async Task<int> GetVendorOutOfStockProductsCountAsync(int vendorId)
+        {
+            try
+            {
+                return await _productRepository.CountAsync(p => p.VendorId == vendorId && p.StockQuantity <= 0);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting out of stock product count for vendor {vendorId}");
+                throw;
+            }
+        }
 
         public ProductService(
             IProductRepository productRepository,
@@ -530,7 +611,7 @@ namespace eCommerce.Infrastructure.Services
                 Description = product.Description,
                 Price = product.Price,
                 DiscountPrice = product.DiscountPrice,
-                ImageUrl = product.ImagesJson,
+                Images = product.Images,
                 CategoryId = product.CategoryId,
                 CategoryName = product.Category?.Name,
                 VendorId = product.VendorId,
@@ -543,5 +624,15 @@ namespace eCommerce.Infrastructure.Services
                 UpdatedAt = product.UpdatedAt
             };
         }
+
+        Task<List<VendorDashboardDto.ProductPerformance>> IProductService.GetVendorTopProductsAsync(int vendorId, int count)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<List<AdminDashboardDto.TopProduct>> IProductService.GetTopSellingProductsAsync(int v)
+        {
+            throw new NotImplementedException();
+        }
     }
-} 
+}

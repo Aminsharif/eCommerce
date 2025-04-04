@@ -1,0 +1,45 @@
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated != true)
+                {
+                    <RedirectToLogin />
+                }
+                else
+                {
+                    <p class="not-authorized">You are not authorized to access this resource.</p>
+                }
+            </NotAuthorized>
+            <Authorizing>
+                <div class="loading-container">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <p>Authorizing...</p>
+                </div>
+            </Authorizing>
+        </AuthorizeRouteView>
+    </Found>
+    <NotFound>
+        <CascadingAuthenticationState>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+                    <MudText Typo="Typo.h3" Align="Align.Center" GutterBottom="true">404 - Page Not Found</MudText>
+                    <MudText Typo="Typo.body1" Align="Align.Center">The page you requested could not be found.</MudText>
+                    <div class="d-flex justify-center mt-4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Link="/" StartIcon="@Icons.Material.Filled.Home">Return Home</MudButton>
+                    </div>
+                </MudContainer>
+            </LayoutView>
+        </CascadingAuthenticationState>
+    </NotFound>
+</Router>
+
+@code {
+    private async Task<bool> IsUserAuthenticated()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        return authState.User.Identity.IsAuthenticated;
+    }
+}

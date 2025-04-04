@@ -1,0 +1,177 @@
+@page "/account/wishlist"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>My Wishlist - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudGrid>
+        <!-- Account Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/account" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/account/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Favorite" Text="Wishlist" Href="/account/wishlist" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.Person" Text="Profile" Href="/account/profile" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Preferences" Href="/account/preferences" />
+                    <MudListItem Icon="@Icons.Material.Filled.ExitToApp" Text="Logout" OnClick="Logout" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Wishlist Content -->
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h5" Class="mb-4">My Wishlist</MudText>
+
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else if (_wishlistItems != null && _wishlistItems.Any())
+                {
+                    <MudGrid>
+                        @foreach (var item in _wishlistItems)
+                        {
+                            <MudItem xs="12">
+                                <MudCard Elevation="2" Class="mb-4">
+                                    <MudCardContent>
+                                        <MudGrid>
+                                            <MudItem xs="12" sm="3">
+                                                <MudImage Src="@(item.ImageUrl ?? "/images/no-image.png")" 
+                                                         Alt="@item.Name" 
+                                                         ObjectFit="ObjectFit.Cover" 
+                                                         Height="150"
+                                                          Style="width: 100%;"
+                                                          Class="rounded" />
+                                            </MudItem>
+                                            <MudItem xs="12" sm="6" Class="d-flex flex-column justify-center">
+                                                <MudLink Href="@($"/product/{item.Id}")" Typo="Typo.h6">@item.Name</MudLink>
+                                                <MudText Typo="Typo.body2" Color="Color.Primary" Class="mb-2">@item.Brand</MudText>
+                                                @if (item.IsInStock)
+                                                {
+                                                    <MudChip Color="Color.Success" Size="Size.Small">In Stock</MudChip>
+                                                }
+                                                else
+                                                {
+                                                    <MudChip Color="Color.Error" Size="Size.Small">Out of Stock</MudChip>
+                                                }
+                                                <MudText Typo="Typo.body2" Class="mt-2">Added on @item.DateAdded.ToLocalTime().ToString("MMM dd, yyyy")</MudText>
+                                            </MudItem>
+                                            <MudItem xs="12" sm="3" Class="d-flex flex-column justify-center align-end">
+                                                @if (item.DiscountPrice.HasValue)
+                                                {
+                                                    <MudText Typo="Typo.h6" Color="Color.Primary"><strong>$@item.DiscountPrice.Value.ToString("F2")</strong></MudText>
+                                                    <MudText Typo="Typo.body2" Style="text-decoration: line-through;" Color="Color.Error">$@item.Price.ToString("F2")</MudText>
+                                                }
+                                                else
+                                                {
+                                                    <MudText Typo="Typo.h6" Color="Color.Primary"><strong>$@item.Price.ToString("F2")</strong></MudText>
+                                                }
+                                                <MudButton Variant="Variant.Filled" 
+                                                           Color="Color.Primary" 
+                                                           OnClick="() => AddToCartAsync(item)" 
+                                                           Disabled="!item.IsInStock"
+                                                           Class="mt-2">
+                                                    Add to Cart
+                                                </MudButton>
+                                                <MudButton Variant="Variant.Text" 
+                                                           Color="Color.Error" 
+                                                           OnClick="() => RemoveFromWishlistAsync(item.Id)"
+                                                           Class="mt-2">
+                                                    Remove
+                                                </MudButton>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-4">
+                        Your wishlist is empty. Browse our products and add items to your wishlist!
+                    </MudAlert>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Link="/products" Class="mt-4">
+                        Browse Products
+                    </MudButton>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private List<WishlistItemDto> _wishlistItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWishlistAsync();
+    }
+
+    private async Task LoadWishlistAsync()
+    {
+        try
+        {
+            _wishlistItems = await Http.GetFromJsonAsync<List<WishlistItemDto>>("api/account/wishlist") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading wishlist: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task AddToCartAsync(WishlistItemDto item)
+    {
+        try
+        {
+            await Http.PostAsJsonAsync("api/cart", new { ProductId = item.Id, Quantity = 1 });
+            Snackbar.Add("Item added to cart successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding item to cart: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task RemoveFromWishlistAsync(int productId)
+    {
+        try
+        {
+            await Http.DeleteAsync($"api/account/wishlist/{productId}");
+            await LoadWishlistAsync();
+            Snackbar.Add("Item removed from wishlist", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error removing item from wishlist: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task Logout()
+    {
+        // Implement logout logic
+        NavigationManager.NavigateTo("/");
+    }
+
+    private class WishlistItemDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+        public string Brand { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public decimal? DiscountPrice { get; set; }
+        public bool IsInStock { get; set; }
+        public DateTime DateAdded { get; set; }
+    }
+}

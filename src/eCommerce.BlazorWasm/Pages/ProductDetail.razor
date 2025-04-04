@@ -1,0 +1,220 @@
+@page "/product/{ProductId:int}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_product?.Name ?? "Product") - eCommerce Platform</PageTitle>
+
+@if (_isLoading)
+{
+    <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="400px" Width="100%" />
+                <MudGrid Class="mt-2" Spacing="1">
+                    @for (int i = 0; i < 4; i++)
+                    {
+                        <MudItem xs="3">
+                            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="80px" Width="100%" />
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSkeleton Width="70%" Height="42px" />
+                <MudSkeleton Width="40%" Class="mt-4" />
+                <MudSkeleton Width="60%" Class="mt-8" />
+                <MudSkeleton Width="90%" Height="100px" Class="mt-4" />
+                <MudSkeleton Width="50%" Class="mt-8" />
+                <MudSkeleton Width="100%" Height="56px" Class="mt-4" />
+            </MudItem>
+        </MudGrid>
+    </MudContainer>
+}
+else if (_product != null)
+{
+    <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+        <MudBreadcrumbs Items="_breadcrumbs" />
+        
+        <MudGrid>
+            <!-- Product Images -->
+            <MudItem xs="12" md="6">
+                <MudCarousel Class="mud-width-full" Style="height:400px;" ShowArrows="true" ShowDelimiters="true" AutoCycle="false" TData="string">
+                    @foreach (var image in _product.Images)
+                    {
+                        <MudCarouselItem Transition="Transition.Slide">
+                            <MudImage Src="@image" Alt="@_product.Name" ObjectFit="ObjectFit.Cover" Height="400" Style="width: 100%;" Class="rounded-lg" />
+                        </MudCarouselItem>
+                    }
+                </MudCarousel>
+                
+                <MudGrid Class="mt-2" Spacing="1">
+                    @foreach (var image in _product.Images.Take(4))
+                    {
+                        <MudItem xs="3">
+                            <MudImage Src="@image" Alt="Thumbnail" ObjectFit="ObjectFit.Cover" Height="80" Style="width: 100%;" Class="rounded" />
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudItem>
+            
+            <!-- Product Details -->
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.h4">@_product.Name</MudText>
+                <MudText Typo="Typo.subtitle1" Color="Color.Primary" Class="mt-2">@_product.Brand</MudText>
+                
+                <div class="d-flex align-center mt-4">
+                    <MudRating ReadOnly="true" Value="@((int)_product.Rating)" />
+                    <MudText Typo="Typo.body2" Class="ml-2">(@_product.TotalReviews reviews)</MudText>
+                </div>
+                
+                <div class="d-flex align-center mt-4">
+                    @if (_product.DiscountPrice.HasValue)
+                    {
+                        <MudText Typo="Typo.h5" Color="Color.Primary" Class="mr-3"><strong>$@_product.DiscountPrice.Value.ToString("F2")</strong></MudText>
+                        <MudText Typo="Typo.h6" Style="text-decoration: line-through;" Color="Color.Error">$@_product.Price.ToString("F2")</MudText>
+                        <MudChip Color="Color.Error" Size="Size.Small" Class="ml-3">@(((1 - _product.DiscountPrice.Value / _product.Price) * 100).ToString("F0"))% OFF</MudChip>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h5" Color="Color.Primary"><strong>$@_product.Price.ToString("F2")</strong></MudText>
+                    }
+                </div>
+                
+                <MudText Typo="Typo.body1" Class="mt-4">@_product.Description</MudText>
+                
+                <MudDivider Class="my-6" />
+                
+                <MudNumericField @bind-Value="_quantity" Label="Quantity" Variant="Variant.Outlined" Min="1" Max="10" Class="mt-4" />
+                
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" OnClick="AddToCart" Class="mt-4">
+                    <MudIcon Icon="@Icons.Material.Filled.ShoppingCart" Class="mr-2" /> Add to Cart
+                </MudButton>
+                
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Large" FullWidth="true" OnClick="AddToWishlist" Class="mt-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Favorite" Class="mr-2" /> Add to Wishlist
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+        
+        <!-- Product Reviews -->
+        <MudText Typo="Typo.h5" Class="mt-8 mb-4">Customer Reviews</MudText>
+        
+        @if (_reviews != null && _reviews.Any())
+        {
+            foreach (var review in _reviews)
+            {
+                <MudPaper Class="pa-4 mb-4" Elevation="0">
+                    <div class="d-flex justify-space-between">
+                        <div>
+                            <MudText Typo="Typo.subtitle1">@review.UserName</MudText>
+                            <MudRating ReadOnly="true" Value="@review.Rating" Size="Size.Small" />
+                        </div>
+                        <MudText Typo="Typo.caption">@review.Date.ToShortDateString()</MudText>
+                    </div>
+                    <MudText Typo="Typo.body2" Class="mt-2">@review.Comment</MudText>
+                </MudPaper>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">No reviews yet. Be the first to review this product!</MudAlert>
+        }
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+        <MudAlert Severity="Severity.Error">Product not found.</MudAlert>
+    </MudContainer>
+}
+
+@code {
+    [Parameter]
+    public int ProductId { get; set; }
+    
+    private ProductDetailDto? _product;
+    private List<ReviewDto>? _reviews;
+    private bool _isLoading = true;
+    private int _quantity = 1;
+    private List<BreadcrumbItem> _breadcrumbs = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductAsync();
+    }
+    
+    private async Task LoadProductAsync()
+    {
+        try
+        {
+            _product = await Http.GetFromJsonAsync<ProductDetailDto>($"api/products/{ProductId}");
+            if (_product != null)
+            {
+                _reviews = await Http.GetFromJsonAsync<List<ReviewDto>>($"api/products/{ProductId}/reviews");
+                
+                _breadcrumbs = new List<BreadcrumbItem>
+                {
+                    new BreadcrumbItem("Home", "/"),
+                    new BreadcrumbItem("Products", "/products"),
+                    new BreadcrumbItem(_product.Name, null, disabled: true)
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading product: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    
+    private async Task AddToCart()
+    {
+        try
+        {
+            await Http.PostAsync($"api/cart/add/{ProductId}?quantity={_quantity}", null);
+            Snackbar.Add("Product added to cart", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding product to cart: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task AddToWishlist()
+    {
+        try
+        {
+            await Http.PostAsync($"api/wishlist/add/{ProductId}", null);
+            Snackbar.Add("Product added to wishlist", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding product to wishlist: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private class ProductDetailDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public decimal? DiscountPrice { get; set; }
+        public decimal Rating { get; set; }
+        public int TotalReviews { get; set; }
+        public string Brand { get; set; } = string.Empty;
+        public List<string> Images { get; set; } = new();
+    }
+    
+    private class ReviewDto
+    {
+        public string UserName { get; set; } = string.Empty;
+        public int Rating { get; set; }
+        public string Comment { get; set; } = string.Empty;
+        public DateTime Date { get; set; }
+    }
+}

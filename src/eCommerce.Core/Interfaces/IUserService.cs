@@ -25,5 +25,6 @@ namespace eCommerce.Core.Interfaces
         Task<User> RegisterUser(User user, string password);
         Task<IEnumerable<Product>> GetWishlist(int userId);
         Task<bool> ValidateEmail(string email);
+        Task<int> GetTotalCustomersCountAsync();
     }
 } 

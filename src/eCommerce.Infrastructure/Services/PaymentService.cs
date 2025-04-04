@@ -5,6 +5,8 @@ using eCommerce.Core.Models;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Linq;
+using eCommerce.Core.DTOs.Vendor;
+using eCommerce.Core.DTOs.Admin;
 
 namespace eCommerce.Infrastructure.Services
 {
@@ -13,6 +15,22 @@ namespace eCommerce.Infrastructure.Services
         private readonly IPaymentRepository _paymentRepository;
         private readonly IOrderService _orderService;
         private readonly ILogger<PaymentService> _logger;
+        private readonly IProductRepository _productRepository ;
+
+        public async Task<decimal> GetTotalRevenueAsync()
+        {
+            try
+            {
+                return await _productRepository.GetTotalRevenueAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting total revenue");
+                throw;
+            }
+        }
+
+ 
 
         public PaymentService(
             IPaymentRepository paymentRepository,
@@ -226,5 +244,20 @@ namespace eCommerce.Infrastructure.Services
             var updatedPayment = await _paymentRepository.UpdateAsync(payment);
             return updatedPayment;
         }
+
+        Task<decimal> IPaymentService.GetVendorRevenueAsync(int vendorId)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<List<VendorDashboardDto.SalesByMonth>> IPaymentService.GetVendorSalesHistoryAsync(int vendorId, DateTime startDate, DateTime endDate)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<List<AdminDashboardDto.RevenueByMonth>> IPaymentService.GetRevenueHistoryAsync(DateTime startDate, DateTime endDate)
+        {
+            throw new NotImplementedException();
+        }
     }
-} 
+}

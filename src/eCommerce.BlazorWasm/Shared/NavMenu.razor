@@ -1,0 +1,123 @@
+@using static System.Net.WebRequestMethods
+@using System.Net.Http.Json
+@using eCommerce.BlazorWasm.Services.Interfaces
+@using eCommerce.Core.Models
+@inject HttpClient Http
+@inject IAuthenticationService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+<MudNavMenu>
+    <AuthorizeView>
+        <NotAuthorized>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+            <MudNavLink Href="/products" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ShoppingBag">Products</MudNavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+    
+    <MudNavGroup Title="Categories" Icon="@Icons.Material.Filled.Category" Expanded="false">
+        @if (_categories != null)
+        {
+            @foreach (var category in _categories)
+            {
+                <MudNavLink Href="@($"/products/category/{category.Id}")" Match="NavLinkMatch.Prefix">@category.Name</MudNavLink>
+            }
+        }
+        else
+        {
+            <MudNavLink Disabled="true">Loading...</MudNavLink>
+        }
+    </MudNavGroup>
+    
+    <MudDivider Class="my-2" />
+    
+    <AuthorizeView>
+        <Authorized>
+            <!-- Common authenticated user links -->
+            <MudNavLink OnClick="@(async () => await HandleLogout())" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
+            
+            <!-- Customer specific menu -->
+            <AuthorizeView Roles="@UserRole.Customer.ToString()" Context="CustomerAuth">
+                <Authorized Context="customerContext">
+                    <MudNavGroup Title="My Account" Icon="@Icons.Material.Filled.Person" Expanded="false">
+                        <MudNavLink Href="/cart" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.ShoppingCart">Cart</MudNavLink>
+                        <MudNavLink Href="/account/orders" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Receipt">Orders</MudNavLink>
+                        <MudNavLink Href="/account/wishlist" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Favorite">Wishlist</MudNavLink>
+                        <MudNavLink Href="/account/profile" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Person">Profile</MudNavLink>
+                    </MudNavGroup>
+                </Authorized>
+            </AuthorizeView>
+            
+            <!-- Admin specific menu -->
+            <AuthorizeView Roles="@UserRole.Admin.ToString()" Context="AdminAuth">
+                <Authorized Context="adminContext">
+                    <MudNavGroup Title="Admin" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
+                        <MudNavLink Href="/admin/dashboard" Match="NavLinkMatch.All">Dashboard</MudNavLink>
+                        <MudNavLink Href="/admin/products" Match="NavLinkMatch.All">Products</MudNavLink>
+                        <MudNavLink Href="/admin/categories" Match="NavLinkMatch.All">Categories</MudNavLink>
+                        <MudNavLink Href="/admin/orders" Match="NavLinkMatch.All">Orders</MudNavLink>
+                        <MudNavLink Href="/admin/customers" Match="NavLinkMatch.All">Customers</MudNavLink>
+                        <MudNavLink Href="/admin/analytics" Match="NavLinkMatch.All">Analytics</MudNavLink>
+                        <MudNavLink Href="/admin/settings" Match="NavLinkMatch.All">Settings</MudNavLink>
+                    </MudNavGroup>
+                </Authorized>
+            </AuthorizeView>
+            
+            <!-- Vendor specific menu -->
+            <AuthorizeView Roles="@UserRole.Vendor.ToString()">
+                <Authorized Context="vendorContext">
+                    <MudNavGroup Title="Vendor" Icon="@Icons.Material.Filled.Store" Expanded="false">
+                        <MudNavLink Href="/vendor/dashboard" Match="NavLinkMatch.All">Dashboard</MudNavLink>
+                        <MudNavLink Href="/vendor/products" Match="NavLinkMatch.All">My Products</MudNavLink>
+                        <MudNavLink Href="/vendor/orders" Match="NavLinkMatch.All">Orders</MudNavLink>
+                    </MudNavGroup>
+                </Authorized>
+            </AuthorizeView>
+        </Authorized>
+        <NotAuthorized>
+            <MudNavLink Href="/login" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>
+            <MudNavLink Href="/register" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PersonAdd">Register</MudNavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudNavMenu>
+
+@code {
+    private List<CategoryDto>? _categories;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+    }
+    
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            _categories = await Http.GetFromJsonAsync<List<CategoryDto>>("api/categories");
+        }
+        catch
+        {
+            // Handle error silently
+        }
+    }
+    
+    private class CategoryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            await AuthService.LogoutAsync();
+            Snackbar.Add("Logged out successfully", Severity.Success);
+            NavigationManager.NavigateTo("/login");
+            StateHasChanged();
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred during logout", Severity.Error);
+        }
+    }
+}

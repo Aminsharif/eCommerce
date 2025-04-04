@@ -1,6 +1,7 @@
 using eCommerce.Core.Enums;
 using eCommerce.Core.Interfaces;
 using eCommerce.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace eCommerce.Infrastructure.Services
 {
@@ -12,6 +13,20 @@ namespace eCommerce.Infrastructure.Services
         private readonly IUserRepository _userRepository;
         private readonly IReviewRepository _reviewRepository;
         private readonly ICommissionRepository _commissionRepository;
+        private readonly ILogger<VendorService> _logger;
+
+        public async Task<int> GetTotalVendorsCountAsync()
+        {
+            try
+            {
+                return await _vendorRepository.CountAsync(v => true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting total vendors count");
+                throw;
+            }
+        }
 
         public VendorService(
             IVendorRepository vendorRepository,
@@ -251,5 +266,9 @@ namespace eCommerce.Infrastructure.Services
             return true;
         }
 
+        Task<decimal> IVendorService.GetVendorAverageRatingAsync(int vendorId)
+        {
+            throw new NotImplementedException();
+        }
     }
-} 
+}

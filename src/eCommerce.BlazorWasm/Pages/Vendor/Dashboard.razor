@@ -1,0 +1,84 @@
+@page "/vendor/dashboard"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Vendor")]
+
+<PageTitle>Vendor Dashboard - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Vendor Dashboard</MudText>
+
+    <MudGrid>
+        <!-- Vendor Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/vendor/dashboard" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.Inventory" Text="My Products" Href="/vendor/products" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/vendor/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Settings" Href="/vendor/settings" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Summary Cards -->
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6">Total Products</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Primary">0</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6">Active Orders</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Secondary">0</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6">Total Sales</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Success">$0.00</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6">Product Views</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Info">0</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Recent Orders -->
+        <MudItem xs="12">
+            <MudCard>
+                <MudCardHeader>
+                    <MudText Typo="Typo.h6">Recent Orders</MudText>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudTable Items="@(new string[]{})" Dense="true" Hover="true" Loading="false" LoadingProgressColor="Color.Info">
+                        <HeaderContent>
+                            <MudTh>Order ID</MudTh>
+                            <MudTh>Customer</MudTh>
+                            <MudTh>Products</MudTh>
+                            <MudTh>Total</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Date</MudTh>
+                        </HeaderContent>
+                        <NoRecordsContent>
+                            <MudText>No orders found</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // TODO: Load vendor dashboard data
+        await base.OnInitializedAsync();
+    }
+}

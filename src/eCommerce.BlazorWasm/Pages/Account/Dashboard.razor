@@ -1,0 +1,181 @@
+@page "/account"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>My Account - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">My Account</MudText>
+
+    <MudGrid>
+        <!-- Account Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/account" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/account/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Favorite" Text="Wishlist" Href="/account/wishlist" />
+                    <MudListItem Icon="@Icons.Material.Filled.Person" Text="Profile" Href="/account/profile" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Preferences" Href="/account/preferences" />
+                    <MudListItem Icon="@Icons.Material.Filled.ExitToApp" Text="Logout" OnClick="Logout" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Dashboard Content -->
+        <MudItem xs="12" md="9">
+            <MudGrid>
+                <!-- Recent Orders -->
+                <MudItem xs="12">
+                    <MudPaper Class="pa-4" Elevation="2">
+                        <MudText Typo="Typo.h6" Class="mb-4">Recent Orders</MudText>
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                        }
+                        else if (_recentOrders != null && _recentOrders.Any())
+                        {
+                            <MudTable Items="_recentOrders" Hover="true" Breakpoint="Breakpoint.Sm">
+                                <HeaderContent>
+                                    <MudTh>Order #</MudTh>
+                                    <MudTh>Date</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Total</MudTh>
+                                    <MudTh></MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Order #">@context.OrderNumber</MudTd>
+                                    <MudTd DataLabel="Date">@context.OrderDate.ToLocalTime().ToString("MMM dd, yyyy")</MudTd>
+                                    <MudTd DataLabel="Status">
+                                        <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                                    </MudTd>
+                                    <MudTd DataLabel="Total">$@context.Total.ToString("F2")</MudTd>
+                                    <MudTd>
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Link="@($"/account/orders/{context.Id}")">View</MudButton>
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Link="/account/orders" Class="mt-4">View All Orders</MudButton>
+                        }
+                        else
+                        {
+                            <MudText>No recent orders found.</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Account Summary -->
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-4" Elevation="2">
+                        <MudText Typo="Typo.h6" Class="mb-4">Account Summary</MudText>
+                        <MudList Dense="true">
+                            <MudListItem Icon="@Icons.Material.Filled.ShoppingBag">
+                                <MudText>Total Orders: @(_recentOrders?.Count ?? 0)</MudText>
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.Favorite">
+                                <MudText>Wishlist Items: @(_wishlistCount)</MudText>
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.LocalShipping">
+                                <MudText>Pending Shipments: @(_pendingShipments)</MudText>
+                            </MudListItem>
+                        </MudList>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Preferences Summary -->
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-4" Elevation="2">
+                        <MudText Typo="Typo.h6" Class="mb-4">Preferences</MudText>
+                        <MudList Dense="true">
+                            <MudListItem Icon="@Icons.Material.Filled.Notifications">
+                                <MudText>Email Notifications: @(_preferences?.EmailNotifications ?? false ? "Enabled" : "Disabled")</MudText>
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.Language">
+                                <MudText>Language: @(_preferences?.Language ?? "English")</MudText>
+                            </MudListItem>
+                            <MudListItem Icon="@Icons.Material.Filled.AttachMoney">
+                                <MudText>Currency: @(_preferences?.Currency ?? "USD")</MudText>
+                            </MudListItem>
+                        </MudList>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Link="/account/preferences" Class="mt-4">Edit Preferences</MudButton>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private List<OrderDto>? _recentOrders;
+    private int _wishlistCount;
+    private int _pendingShipments;
+    private UserPreferencesDto? _preferences;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardDataAsync();
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        try
+        {
+            _recentOrders = await Http.GetFromJsonAsync<List<OrderDto>>("api/orders/recent");
+            var dashboardData = await Http.GetFromJsonAsync<DashboardDto>("api/account/dashboard");
+            if (dashboardData != null)
+            {
+                _wishlistCount = dashboardData.WishlistCount;
+                _pendingShipments = dashboardData.PendingShipments;
+                _preferences = dashboardData.Preferences;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading dashboard data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Color GetStatusColor(string status) => status.ToLower() switch
+    {
+        "completed" => Color.Success,
+        "processing" => Color.Info,
+        "shipped" => Color.Primary,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    private async Task Logout()
+    {
+        // Implement logout logic
+        NavigationManager.NavigateTo("/");
+    }
+
+    private class OrderDto
+    {
+        public int Id { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
+        public DateTime OrderDate { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public decimal Total { get; set; }
+    }
+
+    private class DashboardDto
+    {
+        public int WishlistCount { get; set; }
+        public int PendingShipments { get; set; }
+        public UserPreferencesDto Preferences { get; set; } = new();
+    }
+
+    private class UserPreferencesDto
+    {
+        public bool EmailNotifications { get; set; }
+        public string Language { get; set; } = "English";
+        public string Currency { get; set; } = "USD";
+    }
+}

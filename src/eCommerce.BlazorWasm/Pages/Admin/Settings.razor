@@ -1,0 +1,207 @@
+@page "/admin/settings"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Store Settings - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudGrid>
+        <!-- Admin Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/admin" />
+                    <MudListItem Icon="@Icons.Material.Filled.Inventory" Text="Products" Href="/admin/products" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/admin/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Category" Text="Categories" Href="/admin/categories" />
+                    <MudListItem Icon="@Icons.Material.Filled.People" Text="Customers" Href="/admin/customers" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Settings" Href="/admin/settings" Selected="true" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Settings Content -->
+        <MudItem xs="12" md="9">
+            <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                <MudTabPanel Text="General">
+                    <MudForm Model="_generalSettings" @ref="_form">
+                        <MudCard Elevation="0">
+                            <MudCardContent>
+                                <MudTextField @bind-Value="_generalSettings.StoreName" Label="Store Name" Required="true" />
+                                <MudTextField @bind-Value="_generalSettings.StoreEmail" Label="Store Email" Required="true" />
+                                <MudTextField @bind-Value="_generalSettings.StorePhone" Label="Store Phone" />
+                                <MudTextField @bind-Value="_generalSettings.StoreAddress" Label="Store Address" Lines="3" />
+                                @using eCommerce.Core.Enums
+
+<MudSelect T="CurrencyCode" @bind-Value="_generalSettings.DefaultCurrency" Label="Default Currency" Required="true">
+                                    <MudSelectItem Value="CurrencyCode.USD">USD ($)</MudSelectItem>
+                                    <MudSelectItem Value="CurrencyCode.EUR">EUR (€)</MudSelectItem>
+                                    <MudSelectItem Value="CurrencyCode.GBP">GBP (£)</MudSelectItem>
+                                </MudSelect>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudForm>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Payment Methods">
+                    <MudCard Elevation="0">
+                        <MudCardContent>
+                            <MudList Clickable="true">
+                                <MudListItem>
+                                    <div class="d-flex justify-space-between align-center w-100">
+                                        <div class="d-flex gap-4 align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.CreditCard" />
+                                            <div>
+                                                <MudText>Stripe</MudText>
+                                                <MudText Typo="Typo.caption">Accept credit card payments</MudText>
+                                            </div>
+                                        </div>
+                                        <MudSwitch @bind-Checked="_paymentSettings.StripeEnabled" Color="Color.Primary" />
+                                    </div>
+                                </MudListItem>
+                                <MudListItem>
+                                    <div class="d-flex justify-space-between align-center w-100">
+                                        <div class="d-flex gap-4 align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.Payment" />
+                                            <div>
+                                                <MudText>PayPal</MudText>
+                                                <MudText Typo="Typo.caption">Accept PayPal payments</MudText>
+                                            </div>
+                                        </div>
+                                        <MudSwitch @bind-Checked="_paymentSettings.PayPalEnabled" Color="Color.Primary" />
+                                    </div>
+                                </MudListItem>
+                            </MudList>
+                        </MudCardContent>
+                    </MudCard>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Shipping">
+                    <MudCard Elevation="0">
+                        <MudCardContent>
+                            <MudList>
+                                @foreach (var method in _shippingMethods)
+                                {
+                                    <MudListItem>
+                                        <div class="d-flex justify-space-between align-center w-100">
+                                            <div>
+                                                <MudText>@method.Name</MudText>
+                                                <MudText Typo="Typo.caption">@method.Description</MudText>
+                                            </div>
+                                            <div class="d-flex gap-4 align-center">
+                                                <MudTextField @bind-Value="method.Cost" Label="Cost" Adornment="Adornment.Start"
+                                                            AdornmentText="$" Immediate="true" />
+                                                <MudSwitch @bind-Checked="method.Enabled" Color="Color.Primary" />
+                                            </div>
+                                        </div>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        </MudCardContent>
+                    </MudCard>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Email">
+                    <MudForm Model="_emailSettings" @ref="_form">
+                        <MudCard Elevation="0">
+                            <MudCardContent>
+                                <MudTextField @bind-Value="_emailSettings.SmtpServer" Label="SMTP Server" Required="true" />
+                                <MudTextField @bind-Value="_emailSettings.SmtpPort" Label="SMTP Port" Required="true" />
+                                <MudTextField @bind-Value="_emailSettings.SmtpUsername" Label="SMTP Username" Required="true" />
+                                <MudTextField @bind-Value="_emailSettings.SmtpPassword" Label="SMTP Password" Required="true"
+                                            InputType="InputType.Password" />
+                                <MudSwitch @bind-Checked="_emailSettings.EnableSsl" Label="Enable SSL" Color="Color.Primary" />
+                            </MudCardContent>
+                        </MudCard>
+                    </MudForm>
+                </MudTabPanel>
+            </MudTabs>
+
+            <div class="d-flex justify-end mt-6">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveSettings">Save Changes</MudButton>
+            </div>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private MudForm? _form;
+    private GeneralSettings _generalSettings = new();
+    private PaymentSettings _paymentSettings = new();
+    private List<ShippingMethod> _shippingMethods = new();
+    private EmailSettings _emailSettings = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        try
+        {
+            _generalSettings = await Http.GetFromJsonAsync<GeneralSettings>("api/admin/settings/general") ?? new();
+            _paymentSettings = await Http.GetFromJsonAsync<PaymentSettings>("api/admin/settings/payment") ?? new();
+            _shippingMethods = await Http.GetFromJsonAsync<List<ShippingMethod>>("api/admin/settings/shipping") ?? new();
+            _emailSettings = await Http.GetFromJsonAsync<EmailSettings>("api/admin/settings/email") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading settings: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            await _form!.Validate();
+            if (_form.IsValid)
+            {
+                await Http.PutAsJsonAsync("api/admin/settings/general", _generalSettings);
+                await Http.PutAsJsonAsync("api/admin/settings/payment", _paymentSettings);
+                await Http.PutAsJsonAsync("api/admin/settings/shipping", _shippingMethods);
+                await Http.PutAsJsonAsync("api/admin/settings/email", _emailSettings);
+                Snackbar.Add("Settings saved successfully", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving settings: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private class GeneralSettings
+    {
+        public string StoreName { get; set; } = string.Empty;
+        public string StoreEmail { get; set; } = string.Empty;
+        public string StorePhone { get; set; } = string.Empty;
+        public string StoreAddress { get; set; } = string.Empty;
+        public CurrencyCode DefaultCurrency { get; set; } = CurrencyCode.USD;
+    }
+
+    private class PaymentSettings
+    {
+        public bool StripeEnabled { get; set; }
+        public bool PayPalEnabled { get; set; }
+    }
+
+    private class ShippingMethod
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Cost { get; set; }
+        public bool Enabled { get; set; }
+    }
+
+    private class EmailSettings
+    {
+        public string SmtpServer { get; set; } = string.Empty;
+        public int SmtpPort { get; set; }
+        public string SmtpUsername { get; set; } = string.Empty;
+        public string SmtpPassword { get; set; } = string.Empty;
+        public bool EnableSsl { get; set; }
+    }
+}

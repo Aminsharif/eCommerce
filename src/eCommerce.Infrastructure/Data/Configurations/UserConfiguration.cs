@@ -8,15 +8,20 @@ namespace eCommerce.Infrastructure.Data.Configurations
     {
         public void Configure(EntityTypeBuilder<User> builder)
         {
-            builder.HasKey(u => u.Id);
+            // Map base IdentityUser properties
+            builder.Property(u => u.UserName)
+                .HasMaxLength(256);
+
+            builder.Property(u => u.NormalizedUserName)
+                .HasMaxLength(256);
 
             builder.Property(u => u.Email)
-                .IsRequired()
-                .HasMaxLength(100);
+                .HasMaxLength(256);
 
-            builder.Property(u => u.PasswordHash)
-                .IsRequired();
+            builder.Property(u => u.NormalizedEmail)
+                .HasMaxLength(256);
 
+            // Map custom properties
             builder.Property(u => u.FirstName)
                 .IsRequired()
                 .HasMaxLength(50);
@@ -25,13 +30,7 @@ namespace eCommerce.Infrastructure.Data.Configurations
                 .IsRequired()
                 .HasMaxLength(50);
 
-            builder.Property(u => u.PhoneNumber)
-                .HasMaxLength(20);
-
             builder.Property(u => u.CreatedAt)
-                .IsRequired();
-
-            builder.Property(u => u.UpdatedAt)
                 .IsRequired();
 
             // Relationships
@@ -61,4 +60,4 @@ namespace eCommerce.Infrastructure.Data.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }
-} 
+}

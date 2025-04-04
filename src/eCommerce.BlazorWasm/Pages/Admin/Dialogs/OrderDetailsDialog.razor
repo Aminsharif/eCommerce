@@ -1,0 +1,251 @@
+@using eCommerce.Core.DTOs
+@using eCommerce.Core.DTOs.Order
+@using eCommerce.Core.DTOs.Address
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <!-- Order Header Information -->
+            <MudItem xs="12">
+                <MudPaper Elevation="0" Class="d-flex justify-space-between align-center mb-4">
+                    <div>
+                        <MudText Typo="Typo.h6">Order #@Order.OrderNumber</MudText>
+                        <MudText Typo="Typo.body2">Placed on @Order.OrderDate.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</MudText>
+                    </div>
+                    <MudChip Color="@GetStatusColor(Order.Status)" Size="Size.Medium">@Order.Status</MudChip>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Order Items -->
+            <MudItem xs="12">
+                <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Order Items</strong></MudText>
+                <MudPaper Elevation="0" Class="pa-2">
+                    <MudList Clickable="false">
+                        @foreach (var item in Order.Items)
+                        {
+                            <MudListItem>
+                                <div class="d-flex flex-grow-1 gap-4">
+                                    @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                    {
+                                        <MudAvatar Square="true" Size="Size.Large" Class="flex-shrink-0">
+                                            <MudImage Src="@item.ImageUrl" Alt="@item.ProductName" ObjectFit="ObjectFit.Cover" Width="60" Height="60" />
+                                        </MudAvatar>
+                                    }
+                                    <div class="flex-grow-1">
+                                        <MudText Typo="Typo.body1">@item.ProductName</MudText>
+                                        <MudText Typo="Typo.body2">Quantity: @item.Quantity</MudText>
+                                        @if (!string.IsNullOrEmpty(item.VariantInfo))
+                                        {
+                                            <MudText Typo="Typo.body2">@item.VariantInfo</MudText>
+                                        }
+                                    </div>
+                                    <div class="d-flex flex-column align-end">
+                                        <MudText Typo="Typo.body1">$@item.Price.ToString("F2")</MudText>
+                                        <MudText Typo="Typo.body2">$@((item.Price * item.Quantity).ToString("F2"))</MudText>
+                                    </div>
+                                </div>
+                            </MudListItem>
+                            <MudDivider />
+                        }
+                    </MudList>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Order Summary -->
+            <MudItem xs="12" md="6" Class="mt-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Order Summary</strong></MudText>
+                <MudPaper Elevation="0" Class="pa-4">
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Subtotal:</MudText>
+                        <MudText>$@Order.Subtotal.ToString("F2")</MudText>
+                    </div>
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Shipping:</MudText>
+                        <MudText>$@Order.ShippingCost.ToString("F2")</MudText>
+                    </div>
+                    @if (Order.Discount > 0)
+                    {
+                        <div class="d-flex justify-space-between mb-2">
+                            <MudText>Discount:</MudText>
+                            <MudText Color="Color.Error">-$@Order.Discount.ToString("F2")</MudText>
+                        </div>
+                    }
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Tax:</MudText>
+                        <MudText>$@Order.Tax.ToString("F2")</MudText>
+                    </div>
+                    <MudDivider Class="my-2" />
+                    <div class="d-flex justify-space-between">
+                        <MudText Typo="Typo.subtitle1"><strong>Total:</strong></MudText>
+                        <MudText Typo="Typo.subtitle1"><strong>$@Order.Total.ToString("F2")</strong></MudText>
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Shipping & Payment Info -->
+            <MudItem xs="12" md="6" Class="mt-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Shipping & Payment</strong></MudText>
+                <MudPaper Elevation="0" Class="pa-4">
+                    @if (Order.ShippingAddress != null)
+                    {
+                        <MudText Typo="Typo.subtitle2">Shipping Address</MudText>
+                        <MudText Typo="Typo.body2">@Order.ShippingAddress.FullName</MudText>
+                        <MudText Typo="Typo.body2">@Order.ShippingAddress.Street</MudText>
+                        <MudText Typo="Typo.body2">@Order.ShippingAddress.City, @Order.ShippingAddress.State @Order.ShippingAddress.PostalCode</MudText>
+                        <MudText Typo="Typo.body2" Class="mb-3">@Order.ShippingAddress.Country</MudText>
+                    }
+
+                    <MudText Typo="Typo.subtitle2">Shipping Method</MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">@Order.ShippingMethod</MudText>
+
+                    <MudText Typo="Typo.subtitle2">Payment Method</MudText>
+                    <MudText Typo="Typo.body2">@Order.PaymentMethod</MudText>
+                    @if (!string.IsNullOrEmpty(Order.PaymentDetails))
+                    {
+                        <MudText Typo="Typo.body2">@Order.PaymentDetails</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Order Timeline -->
+            @if (Order.Timeline != null && Order.Timeline.Any())
+            {
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Order Timeline</strong></MudText>
+                    <MudTimeline>
+                        @foreach (var timelineEvent in Order.Timeline)
+                        {
+                            <MudTimelineItem Color="@GetTimelineColor(timelineEvent.Status)" Size="Size.Small">
+                                <ItemOpposite>
+                                    <MudText Typo="Typo.body2">@timelineEvent.Timestamp.ToLocalTime().ToString("MMM dd, yyyy HH:mm")</MudText>
+                                </ItemOpposite>
+                                <ItemContent>
+                                    <MudText Typo="Typo.body1">@timelineEvent.Status</MudText>
+                                    @if (!string.IsNullOrEmpty(timelineEvent.Note))
+                                    {
+                                        <MudText Typo="Typo.body2">@timelineEvent.Note</MudText>
+                                    }
+                                </ItemContent>
+                            </MudTimelineItem>
+                        }
+                    </MudTimeline>
+                </MudItem>
+            }
+
+            <!-- Admin Actions -->
+            @if (IsAdmin && Order.Status != "Cancelled" && Order.Status != "Delivered")
+            {
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Admin Actions</strong></MudText>
+                    <MudPaper Elevation="0" Class="pa-4">
+                        <MudSelect T="string" @bind-Value="_selectedStatus" Label="Update Order Status">
+                            @foreach (var status in _availableStatuses)
+                            {
+                                <MudSelectItem Value="@status">@status</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_statusNote" Label="Note (Optional)" Class="mt-3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UpdateOrderStatusAsync" Class="mt-3">Update Status</MudButton>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        @if (Order.Status == "Delivered" || Order.Status == "Completed")
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="() => DownloadInvoice(Order.Id)">Download Invoice</MudButton>
+        }
+        <MudButton OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public OrderDetailsDto Order { get; set; } = null!;
+    [Parameter] public bool IsAdmin { get; set; } = false;
+
+    private string? _selectedStatus;
+    private string? _statusNote;
+    private readonly string[] _availableStatuses = { "Pending", "Processing", "Shipped", "Delivered", "Cancelled" };
+
+    private void Close()
+    {
+        MudDialog.Close();
+    }
+
+    private async Task UpdateOrderStatusAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedStatus) || _selectedStatus == Order.Status)
+            return;
+
+        try
+        {
+            var request = new UpdateOrderStatusDto
+            {
+                OrderId = Order.Id,
+                Status = _selectedStatus,
+                Note = _statusNote
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/orders/{Order.Id}/status", request);
+            response.EnsureSuccessStatusCode();
+
+            Snackbar.Add($"Order status updated to {_selectedStatus}", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating order status: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadInvoice(int orderId)
+    {
+        try
+        {
+            var response = await Http.GetAsync($"api/orders/{orderId}/invoice");
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStreamAsync();
+            var fileName = $"invoice_{Order.OrderNumber}.pdf";
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, content);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error downloading invoice: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Color GetStatusColor(string status) => status?.ToLower() switch
+    {
+        "completed" => Color.Success,
+        "delivered" => Color.Success,
+        "shipped" => Color.Info,
+        "processing" => Color.Info,
+        "pending" => Color.Warning,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    private Color GetTimelineColor(string status) => status?.ToLower() switch
+    {
+        "order placed" => Color.Info,
+        "payment received" => Color.Info,
+        "processing" => Color.Info,
+        "shipped" => Color.Info,
+        "delivered" => Color.Success,
+        "completed" => Color.Success,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    public class UpdateOrderStatusDto
+    {
+        public int OrderId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? Note { get; set; }
+    }
+}

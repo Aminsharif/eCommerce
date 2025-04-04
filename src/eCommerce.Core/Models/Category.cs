@@ -24,7 +24,7 @@ namespace eCommerce.Core.Models
 
         public virtual ICollection<Product> Products { get; set; }
 
-        public bool IsActive { get; set; } = true;
+        public new bool IsActive { get; set; } = true;
 
         [NotMapped]
         public int ProductCount { get; set; }
@@ -35,4 +35,4 @@ namespace eCommerce.Core.Models
             Products = new HashSet<Product>();
         }
     }
-} 
+}

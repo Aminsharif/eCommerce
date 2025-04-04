@@ -1,0 +1,281 @@
+@page "/"
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<PageTitle>Home - eCommerce Platform</PageTitle>
+
+<!-- Hero Banner Section -->
+<MudCarousel Class="mud-width-full" Style="height:400px;" ShowArrows="true" ShowDelimiters="true" AutoCycle="true" TData="object">
+    @foreach (var banner in _banners)
+    {
+        <MudCarouselItem Transition="Transition.Slide">
+            <div class="d-flex flex-column justify-center align-center mud-width-full mud-height-full" 
+                 style="background-image: url('@banner.ImageUrl'); background-size: cover; background-position: center;">
+                <div class="pa-6 rounded" style="background-color: rgba(0,0,0,0.4);">
+                    <MudText Typo="Typo.h3" Color="Color.Surface" Align="Align.Center">@banner.Title</MudText>
+                    <MudText Typo="Typo.subtitle1" Color="Color.Surface" Align="Align.Center" Class="mt-2">@banner.Subtitle</MudText>
+                    @if (!string.IsNullOrEmpty(banner.ButtonText))
+                    {
+                        <div class="d-flex justify-center mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Link="@banner.ButtonLink">@banner.ButtonText</MudButton>
+                        </div>
+                    }
+                </div>
+            </div>
+        </MudCarouselItem>
+    }
+</MudCarousel>
+
+<!-- Categories Section -->
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-16">
+    <MudText Typo="Typo.h4" Class="mb-4">Shop by Category</MudText>
+    
+    @if (_isLoading)
+    {
+        <MudGrid>
+            @for (int i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="0" Class="rounded-lg">
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="150px" Width="100%" />
+                        <MudCardContent>
+                            <MudSkeleton Width="60%" />
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var category in _categories)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="() => NavigateToCategory(category.Id)" Style="cursor: pointer;">
+                        <MudCardMedia Image="@(category.ImageUrl ?? "/images/no-image.png")" Height="150" />
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Align="Align.Center">@category.Name</MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+<!-- Featured Products Section -->
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-16">
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h4">Featured Products</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Link="/products">View All</MudButton>
+    </div>
+    
+    @if (_isLoading)
+    {
+        <MudGrid>
+            @for (int i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="2" Class="rounded-lg h-100">
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" Width="100%" />
+                        <MudCardContent>
+                            <MudSkeleton Width="90%" />
+                            <MudSkeleton Width="70%" />
+                            <MudSkeleton Width="50%" />
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var product in _featuredProducts)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="() => NavigateToProduct(product.Id)" Style="cursor: pointer;">
+                        <MudCardMedia Image="@(product.Images.FirstOrDefault() ?? "/images/no-image.png")" Height="200" />
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Class="mud-text-truncate">@product.Name</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-truncate mb-2">@product.Brand</MudText>
+                            <div class="d-flex align-center">
+                                @if (product.DiscountPrice.HasValue)
+                                {
+                                    <MudText Typo="Typo.body1" Class="mr-2"><strong>$@product.DiscountPrice.Value.ToString("F2")</strong></MudText>
+                                    <MudText Typo="Typo.body2" Style="text-decoration: line-through;" Color="Color.Error">$@product.Price.ToString("F2")</MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body1"><strong>$@product.Price.ToString("F2")</strong></MudText>
+                                }
+                            </div>
+                            <div class="d-flex align-center mt-1">
+                                <MudRating ReadOnly="true" Value="@((int)product.Rating)" Size="Size.Small" />
+                                <MudText Typo="Typo.caption" Class="ml-2">(@product.TotalReviews)</MudText>
+                            </div>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@((e) => AddToCart(product.Id, e))">Add to Cart</MudButton>
+                            <MudSpacer />
+                            <MudIconButton Icon="@Icons.Material.Filled.Favorite" Color="Color.Error" OnClick="@((e) => AddToWishlist(product.Id, e))" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+<!-- Special Offers Section -->
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-16 mb-16">
+    <MudText Typo="Typo.h4" Class="mb-4">Special Offers</MudText>
+    
+    <MudPaper Elevation="3" Class="pa-6 rounded-lg" Style="background-color: var(--mud-palette-primary-lighten)">
+        <MudGrid>
+            <MudItem xs="12" md="6" Class="d-flex flex-column justify-center">
+                <MudText Typo="Typo.h3" Color="Color.Primary">Summer Sale</MudText>
+                <MudText Typo="Typo.h5" Class="mt-2">Up to 50% off on selected items</MudText>
+                <MudText Typo="Typo.body1" Class="mt-4 mb-4">Discover amazing deals on our best-selling products. Limited time offer!</MudText>
+                <div>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Link="/products?discounted=true">Shop Now</MudButton>
+                </div>
+            </MudItem>
+            <MudItem xs="12" md="6" Class="d-flex justify-center align-center">
+                <MudImage Src="/images/special-offer.png" Alt="Special Offer" Width="400" Height="300" ObjectFit="ObjectFit.Cover" Class="rounded" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private List<ProductDto>? _featuredProducts;
+    private List<CategoryDto>? _categories;
+    private List<BannerDto> _banners = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize banners (in a real app, these would come from the API)
+        _banners = new List<BannerDto>
+        {
+            new BannerDto
+            {
+                Title = "Summer Collection 2023",
+                Subtitle = "Discover the latest trends for the season",
+                ImageUrl = "/images/banner1.jpg",
+                ButtonText = "Shop Now",
+                ButtonLink = "/products"
+            },
+            new BannerDto
+            {
+                Title = "New Arrivals",
+                Subtitle = "Be the first to get our newest products",
+                ImageUrl = "/images/banner2.jpg",
+                ButtonText = "Explore",
+                ButtonLink = "/products?sortBy=newest"
+            },
+            new BannerDto
+            {
+                Title = "Special Offers",
+                Subtitle = "Up to 50% off on selected items",
+                ImageUrl = "/images/banner3.jpg",
+                ButtonText = "View Deals",
+                ButtonLink = "/products?discounted=true"
+            }
+        };
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            // Load featured products
+            _featuredProducts = await Http.GetFromJsonAsync<List<ProductDto>>("api/products/featured?limit=8");
+            
+            // Load categories
+            _categories = await Http.GetFromJsonAsync<List<CategoryDto>>("api/categories");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+            _featuredProducts = new List<ProductDto>();
+            _categories = new List<CategoryDto>();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void NavigateToProduct(int productId)
+    {
+        NavigationManager.NavigateTo($"/product/{productId}");
+    }
+
+    private void NavigateToCategory(int categoryId)
+    {
+        NavigationManager.NavigateTo($"/products/category/{categoryId}");
+    }
+
+    private async Task AddToCart(int productId, MouseEventArgs e)
+    {
+        try
+        {
+            await Http.PostAsync($"api/cart/add/{productId}?quantity=1", null);
+            Snackbar.Add("Product added to cart", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding product to cart: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task AddToWishlist(int productId, MouseEventArgs e)
+    {
+        try
+        {
+            await Http.PostAsync($"api/wishlist/add/{productId}", null);
+            Snackbar.Add("Product added to wishlist", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding product to wishlist: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private class BannerDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Subtitle { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
+        public string ButtonText { get; set; } = string.Empty;
+        public string ButtonLink { get; set; } = string.Empty;
+    }
+
+    private class ProductDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public decimal? DiscountPrice { get; set; }
+        public decimal Rating { get; set; }
+        public int TotalReviews { get; set; }
+        public string Brand { get; set; } = string.Empty;
+        public List<string> Images { get; set; } = new();
+    }
+
+    private class CategoryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
+    }
+}

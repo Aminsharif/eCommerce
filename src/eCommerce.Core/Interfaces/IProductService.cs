@@ -1,4 +1,6 @@
+using eCommerce.Core.DTOs.Admin;
 using eCommerce.Core.DTOs.Product;
+using eCommerce.Core.DTOs.Vendor;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -20,5 +22,14 @@ namespace eCommerce.Core.Interfaces
         Task<bool> DeleteProductAsync(int id);
         Task<bool> UpdateProductStockAsync(int id, int quantity);
         Task<bool> UpdateProductStatusAsync(int id, bool isActive);
+
+        // Vendor-specific methods
+        Task<int> GetVendorProductsCountAsync(int vendorId);
+        Task<int> GetVendorActiveProductsCountAsync(int vendorId);
+        Task<int> GetVendorOutOfStockProductsCountAsync(int vendorId);
+        Task<int> GetTotalProductsCountAsync();
+        Task<int> GetLowStockProductsCountAsync();
+        Task<List<VendorDashboardDto.ProductPerformance>> GetVendorTopProductsAsync(int vendorId, int count);
+        Task<List<AdminDashboardDto.TopProduct>> GetTopSellingProductsAsync(int v);
     }
-} 
+}

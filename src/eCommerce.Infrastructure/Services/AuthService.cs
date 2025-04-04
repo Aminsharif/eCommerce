@@ -6,6 +6,7 @@ using eCommerce.Core.DTOs.Auth;
 using eCommerce.Core.Interfaces;
 using eCommerce.Core.Models;
 using eCommerce.Core.Settings;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -15,11 +16,13 @@ namespace eCommerce.Infrastructure.Services
     {
         private readonly IUserRepository _userRepository;
         private readonly JwtSettings _jwtSettings;
+        private readonly UserManager<User> _userManager;
 
-        public AuthService(IUserRepository userRepository, IOptions<JwtSettings> jwtSettings)
+        public AuthService(IUserRepository userRepository, IOptions<JwtSettings> jwtSettings, UserManager<User> userManager)
         {
             _userRepository = userRepository;
             _jwtSettings = jwtSettings.Value;
+            _userManager = userManager;
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto loginDto)
@@ -34,7 +37,7 @@ namespace eCommerce.Infrastructure.Services
                 };
             }
 
-            var token = GenerateJwtToken(user);
+            var token = await GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken();
 
             user.RefreshToken = refreshToken;
@@ -66,20 +69,23 @@ namespace eCommerce.Infrastructure.Services
 
             var user = new User
             {   
-                Username = registerDto.Email,
+                UserName = registerDto.Email,
                 Email = registerDto.Email,
-                PasswordHash = HashPassword(registerDto.Password),
                 FirstName = registerDto.FirstName,
                 LastName = registerDto.LastName,
                 PhoneNumber = registerDto.PhoneNumber,
-                Role = UserRole.Customer,
                 CreatedAt = DateTime.UtcNow,
                 IsActive = true
             };
+            user.PasswordHash = _userManager.PasswordHasher.HashPassword(user, registerDto.Password);
 
-            await _userRepository.AddAsync(user);
+            var result = await _userManager.CreateAsync(user);
+            if (result.Succeeded)
+            {
+                await _userManager.AddToRoleAsync(user, "Customer");
+            }
 
-            var token = GenerateJwtToken(user);
+            var token = await GenerateJwtToken(user);
             var refreshToken = GenerateRefreshToken();
 
             user.RefreshToken = refreshToken;
@@ -108,7 +114,7 @@ namespace eCommerce.Infrastructure.Services
                 };
             }
 
-            var token = GenerateJwtToken(user);
+            var token = await GenerateJwtToken(user);
             var newRefreshToken = GenerateRefreshToken();
 
             user.RefreshToken = newRefreshToken;
@@ -167,20 +173,29 @@ namespace eCommerce.Infrastructure.Services
             }
         }
 
-        private string GenerateJwtToken(User user)
+        private async Task<string> GenerateJwtToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_jwtSettings.SecretKey);
 
+            var userRoles = await _userManager.GetRolesAsync(user);
+            if (!userRoles.Any())
+            {
+                userRoles = new List<string> { "Customer" };
+            }
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}")
+            };
+            
+            claims.AddRange(userRoles.Select(role => new Claim(ClaimTypes.Role, role)));
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-                    new Claim(ClaimTypes.Role, user.Role.ToString())
-                }),
+                Subject = new ClaimsIdentity(claims),
                 Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes),
                 Issuer = _jwtSettings.Issuer,
                 Audience = _jwtSettings.Audience,
@@ -201,16 +216,9 @@ namespace eCommerce.Infrastructure.Services
             return Convert.ToBase64String(randomNumber);
         }
 
-        private string HashPassword(string password)
-        {
-            using var sha256 = SHA256.Create();
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(hashedBytes);
-        }
-
         private bool VerifyPassword(string password, string hash)
         {
-            return HashPassword(password) == hash;
+            return _userManager.PasswordHasher.VerifyHashedPassword(null, hash, password) == PasswordVerificationResult.Success;
         }
 
         private UserDto MapToUserDto(User user)
@@ -227,4 +235,4 @@ namespace eCommerce.Infrastructure.Services
             };
         }
     }
-} 
+}

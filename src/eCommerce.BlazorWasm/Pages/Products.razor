@@ -1,0 +1,204 @@
+@page "/products"
+@page "/products/category/{CategoryId:int}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Products - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Products</MudText>
+
+    <MudGrid>
+        <!-- Filters Sidebar -->
+        <MudItem xs="12" md="3" Class="mb-4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">Filters</MudText>
+                
+                <!-- Category Filter -->
+                <MudSelect T="int?" Label="Category" Value="_selectedCategoryId" ValueChanged="OnCategoryChanged" Class="mb-3">
+                    <MudSelectItem Value="@((int?)null)">All Categories</MudSelectItem>
+                    @if (_categories != null)
+                    {
+                        @foreach (var category in _categories)
+                        {
+                            <MudSelectItem Value="@category.Id">@category.Name</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+                
+                <!-- Price Range Filter -->
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Price Range</MudText>
+                <MudRangeSlider T="decimal" Value="_priceRange" Min="0" Max="1000" ValueChanged="OnPriceRangeChanged" Class="mb-3">
+                    <ValueLabel>
+                        @((decimal value) => value.ToString("C2"))
+                    </ValueLabel>
+                </MudRangeSlider>
+                
+                <!-- Brand Filter -->
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Brands</MudText>
+                @if (_brands != null)
+                {
+                    @foreach (var brand in _brands)
+                    {
+                        <MudCheckBox T="bool" Label="@brand" Checked="_selectedBrands.Contains(brand)" CheckedChanged="@(b => OnBrandChanged(brand, b))" Class="mb-1" />
+                    }
+                }
+                
+                <!-- Discount Filter -->
+                <MudCheckBox T="bool" Label="Discounted Items Only" Checked="_discountedOnly" CheckedChanged="OnDiscountedOnlyChanged" Class="mt-3" />
+                
+                <!-- In Stock Filter -->
+                <MudCheckBox T="bool" Label="In Stock Only" Checked="_inStockOnly" CheckedChanged="OnInStockOnlyChanged" Class="mt-2" />
+                
+                <!-- Apply Filters Button -->
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApplyFilters" FullWidth="true" Class="mt-4">Apply Filters</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetFilters" FullWidth="true" Class="mt-2">Reset Filters</MudButton>
+            </MudPaper>
+        </MudItem>
+        
+        <!-- Products Grid -->
+        <MudItem xs="12" md="9">
+            <!-- Sorting and View Options -->
+            <MudPaper Class="pa-4 mb-4" Elevation="2">
+                <MudGrid>
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudSelect T="string" Label="Sort By" Value="_sortBy" ValueChanged="OnSortByChanged">
+                            <MudSelectItem Value="@("newest")">Newest</MudSelectItem>
+                            <MudSelectItem Value="@("price_asc")">Price: Low to High</MudSelectItem>
+                            <MudSelectItem Value="@("price_desc")">Price: High to Low</MudSelectItem>
+                            <MudSelectItem Value="@("rating")">Customer Rating</MudSelectItem>
+                            <MudSelectItem Value="@("popularity")">Popularity</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudSelect T="int" Label="Items Per Page" Value="_pageSize" ValueChanged="OnPageSizeChanged">
+                            <MudSelectItem Value="12">12</MudSelectItem>
+                            <MudSelectItem Value="24">24</MudSelectItem>
+                            <MudSelectItem Value="48">48</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="4" Class="d-flex align-center justify-end">
+                        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined">
+                            <MudIconButton Icon="@Icons.Material.Filled.ViewModule" Color="@(_viewMode == "grid" ? Color.Primary : Color.Default)" OnClick="@(() => _viewMode = "grid")" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ViewList" Color="@(_viewMode == "list" ? Color.Primary : Color.Default)" OnClick="@(() => _viewMode = "list")" />
+                        </MudButtonGroup>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+            
+            <!-- Products Display -->
+            @if (_isLoading)
+            {
+                <MudGrid>
+                    @for (int i = 0; i < 8; i++)
+                    {
+                        <MudItem xs="12" sm="6" md="@(_viewMode == "grid" ? 4 : 12)">
+                            <MudCard Elevation="2" Class="rounded-lg h-100">
+                                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" Width="100%" />
+                                <MudCardContent>
+                                    <MudSkeleton Width="90%" />
+                                    <MudSkeleton Width="70%" />
+                                    <MudSkeleton Width="50%" />
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+            else if (_products != null && _products.Any())
+            {
+                <MudGrid>
+                    @foreach (var product in _products)
+                    {
+                        @if (_viewMode == "grid")
+                        {
+                            <MudItem xs="12" sm="6" md="4">
+                                <MudCard Elevation="2" Class="rounded-lg h-100" @onclick="() => NavigateToProduct(product.Id)" Style="cursor: pointer;">
+                                    <MudCardMedia Image="@(product.Images.FirstOrDefault() ?? "/images/no-image.png")" Height="200" />
+                                    <MudCardContent>
+                                        <MudText Typo="Typo.h6" Class="mud-text-truncate">@product.Name</MudText>
+                                        <MudText Typo="Typo.body2" Class="mud-text-truncate mb-2">@product.Brand</MudText>
+                                        <div class="d-flex align-center">
+                                            @if (product.DiscountPrice.HasValue)
+                                            {
+                                                <MudText Typo="Typo.body1" Class="mr-2"><strong>$@product.DiscountPrice.Value.ToString("F2")</strong></MudText>
+                                                <MudText Typo="Typo.body2" Style="text-decoration: line-through;" Color="Color.Error">$@product.Price.ToString("F2")</MudText>
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.body1"><strong>$@product.Price.ToString("F2")</strong></MudText>
+                                            }
+                                        </div>
+                                        <div class="d-flex align-center mt-1">
+                                            <MudRating ReadOnly="true" Value="@((int)product.Rating)" Size="Size.Small" />
+                                            <MudText Typo="Typo.caption" Class="ml-2">(@product.TotalReviews)</MudText>
+                                        </div>
+                                    </MudCardContent>
+                                    <MudCardActions>
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@((e) => AddToCart(product.Id, e))">Add to Cart</MudButton>
+                                        <MudSpacer />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Favorite" Color="Color.Error" OnClick="@((e) => AddToWishlist(product.Id, e))" />
+                                    </MudCardActions>
+                                </MudCard>
+                            </MudItem>
+                        }
+                        else
+                        {
+                            <MudItem xs="12">
+                                <MudCard Elevation="2" Class="rounded-lg mb-4" @onclick="() => NavigateToProduct(product.Id)" Style="cursor: pointer;">
+                                    <MudCardContent>
+                                        <MudGrid>
+                                            <MudItem xs="12" sm="3">
+                                                <MudImage Src="@(product.Images.FirstOrDefault() ?? "/images/no-image.png")" Alt="@product.Name" Style="width: 100%;" Height="150" ObjectFit="ObjectFit.Cover" Class="rounded" />
+                                            </MudItem>
+                                            <MudItem xs="12" sm="9">
+                                                <MudText Typo="Typo.h6">@product.Name</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2">@product.Brand</MudText>
+                                                <MudText Typo="Typo.body2" Class="mb-2 mud-text-truncate-2">@product.Description</MudText>
+                                                <div class="d-flex align-center mb-2">
+                                                    <MudRating ReadOnly="true" Value="@((int)product.Rating)" Size="Size.Small" />
+                                                    <MudText Typo="Typo.caption" Class="ml-2">(@product.TotalReviews)</MudText>
+                                                </div>
+                                                <div class="d-flex align-center">
+                                                    @if (product.DiscountPrice.HasValue)
+                                                    {
+                                                        <MudText Typo="Typo.h6" Class="mr-2"><strong>$@product.DiscountPrice.Value.ToString("F2")</strong></MudText>
+                                                        <MudText Typo="Typo.body2" Style="text-decoration: line-through;" Color="Color.Error">$@product.Price.ToString("F2")</MudText>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudText Typo="Typo.h6"><strong>$@product.Price.ToString("F2")</strong></MudText>
+                                                    }
+                                                </div>
+                                                <div class="d-flex mt-3">
+                                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@((e) => AddToCart(product.Id, e))" Class="mr-2">Add to Cart</MudButton>
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Favorite" Color="Color.Error" OnClick="@((e) => AddToWishlist(product.Id, e))" />
+                                                </div>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+                        }
+                    }
+                </MudGrid>
+            }
+            else
+            {
+                <MudPaper Class="pa-6 text-center" Elevation="0">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Class="mb-4" />
+                    <MudText Typo="Typo.h6">No products found</MudText>
+                    <MudText Typo="Typo.body1" Class="mt-2">Try adjusting your filters or search criteria</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ResetFilters" Class="mt-4">Reset Filters</MudButton>
+                </MudPaper>
+            }
+            
+            <!-- Pagination -->
+            @if (_products != null && _products.Any())
+            {
+                <MudPagination Count="_totalPages" SelectedChanged="OnPageChanged" Class="mt-4 d-flex justify-center" />
+            }
+        </MudItem>
+    </MudGrid>
+</MudContainer>

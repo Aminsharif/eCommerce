@@ -1,0 +1,167 @@
+@page "/admin/categories"
+@using eCommerce.BlazorWasm.Pages.Admin.Dialogs
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Category Management - eCommerce Platform</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudGrid>
+        <!-- Admin Navigation -->
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Dashboard" Text="Dashboard" Href="/admin" />
+                    <MudListItem Icon="@Icons.Material.Filled.Inventory" Text="Products" Href="/admin/products" />
+                    <MudListItem Icon="@Icons.Material.Filled.ShoppingBag" Text="Orders" Href="/admin/orders" />
+                    <MudListItem Icon="@Icons.Material.Filled.Category" Text="Categories" Href="/admin/categories" Selected="true" />
+                    <MudListItem Icon="@Icons.Material.Filled.People" Text="Customers" Href="/admin/customers" />
+                    <MudListItem Icon="@Icons.Material.Filled.Settings" Text="Settings" Href="/admin/settings" />
+                </MudList>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Categories Content -->
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4" Elevation="2">
+                <div class="d-flex justify-space-between align-center mb-4">
+                    <MudText Typo="Typo.h5">Categories</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAddCategoryDialog">
+                        <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" /> Add Category
+                    </MudButton>
+                </div>
+
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else if (_categories != null && _categories.Any())
+                {
+                    <MudTable Items="_categories" Dense="false" Hover="true" Breakpoint="Breakpoint.Sm" Loading="_isLoading"
+                              Elevation="0" @bind-SelectedItem="_selectedCategory">
+                        <HeaderContent>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CategoryDto, object>(x => x.Id)">ID</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CategoryDto, object>(x => x.Name)">Name</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CategoryDto, object>(x => x.Description)">Description</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<CategoryDto, object>(x => x.ProductCount)">Products</MudTableSortLabel></MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="ID">@context.Id</MudTd>
+                            <MudTd DataLabel="Name">@context.Name</MudTd>
+                            <MudTd DataLabel="Description">@context.Description</MudTd>
+                            <MudTd DataLabel="Products">@context.ProductCount</MudTd>
+                            <MudTd>
+                                <MudButtonGroup Size="Size.Small" Variant="Variant.Text">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" OnClick="() => OpenEditCategoryDialog(context)" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="() => DeleteCategory(context)" />
+                                </MudButtonGroup>
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager />
+                        </PagerContent>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudText>No categories found.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private List<CategoryDto> _categories = new();
+    private CategoryDto? _selectedCategory;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            _categories = await Http.GetFromJsonAsync<List<CategoryDto>>("api/admin/categories") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading categories: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OpenAddCategoryDialog()
+    {
+        var dialog = await DialogService.ShowAsync<CategoryDialog>("Add Category");
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadCategoriesAsync();
+            Snackbar.Add("Category added successfully", Severity.Success);
+        }
+    }
+
+    private async Task OpenEditCategoryDialog(CategoryDto category)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Category", category },
+            { "IsEdit", true }
+        };
+
+        var dialog = await DialogService.ShowAsync<CategoryDialog>("Edit Category", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadCategoriesAsync();
+            Snackbar.Add("Category updated successfully", Severity.Success);
+        }
+    }
+
+    private async Task DeleteCategory(CategoryDto category)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", $"Are you sure you want to delete '{category.Name}'? This will also affect all products in this category." },
+            { "ButtonText", "Delete" },
+            { "Color", Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Category", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            try
+            {
+                await Http.DeleteAsync($"api/admin/categories/{category.Id}");
+                await LoadCategoriesAsync();
+                Snackbar.Add("Category deleted successfully", Severity.Success);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error deleting category: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private class CategoryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int ProductCount { get; set; }
+    }
+}
